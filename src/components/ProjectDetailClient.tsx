@@ -9,6 +9,7 @@ import { useSiteData } from "@/context/SiteDataContext";
 import CustomCursor from "@/components/CustomCursor";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
+import { formatVideoDuration } from "@/utils/videoDuration";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -51,6 +52,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const [isScrolledToStills, setIsScrolledToStills] = useState(false);
   const [bottomOffset, setBottomOffset] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [detectedDuration, setDetectedDuration] = useState<string | null>(null);
 
   // Always start at the very top of the page when opening or switching projects
   useEffect(() => {
@@ -187,6 +189,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     setCurrentTime(
       `00:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}:${frames.toString().padStart(2, "0")}`
     );
+  };
+
+  const handleLoadedMetadata = () => {
+    if (
+      videoRef.current &&
+      videoRef.current.duration &&
+      !isNaN(videoRef.current.duration) &&
+      isFinite(videoRef.current.duration)
+    ) {
+      const durStr = formatVideoDuration(videoRef.current.duration);
+      if (durStr && durStr !== "00:00") {
+        setDetectedDuration(durStr);
+      }
+    }
   };
 
   const isDocFullscreen = () => {
@@ -439,6 +455,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               loop
               playsInline
               onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onClick={togglePlay}
@@ -525,10 +542,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   <span className="text-white/80">{project.location}</span>
                 </>
               )}
-              {project.duration && (
+              {(detectedDuration || project.duration) && (
                 <>
                   <span>•</span>
-                  <span>{project.duration}</span>
+                  <span>{detectedDuration || project.duration}</span>
                 </>
               )}
             </div>

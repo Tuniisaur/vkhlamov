@@ -12,6 +12,7 @@ import {
   DEFAULT_ABOUT,
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill } from "@/data/translations";
+import { detectVideoDuration } from "@/utils/videoDuration";
 
 export default function ManagePage() {
   const {
@@ -171,6 +172,8 @@ export default function ManagePage() {
   // Project Editing Modal State
   const [editingProject, setEditingProject] = useState<LocalizedProject | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isCalculatingDuration, setIsCalculatingDuration] = useState(false);
+  const [isBatchCalculating, setIsBatchCalculating] = useState(false);
 
   // Hero Video Form State
   const [heroVideoUrl, setHeroVideoUrl] = useState(settings.heroVideo);
@@ -381,8 +384,18 @@ export default function ManagePage() {
 
   // Open Project Editor
   const handleOpenEdit = (project: LocalizedProject) => {
-    setEditingProject(JSON.parse(JSON.stringify(project)));
+    const cloned = JSON.parse(JSON.stringify(project));
+    setEditingProject(cloned);
     setIsCreatingNew(false);
+
+    // If duration is empty or missing, detect it automatically in background
+    if (!cloned.duration && (cloned.fullVideoUrl || cloned.videoPreviewUrl)) {
+      detectVideoDuration(cloned.fullVideoUrl || cloned.videoPreviewUrl).then((dur) => {
+        if (dur) {
+          setEditingProject((prev) => (prev && prev.id === cloned.id ? { ...prev, duration: dur } : prev));
+        }
+      });
+    }
   };
 
   const handleOpenCreateNew = () => {
@@ -405,7 +418,7 @@ export default function ManagePage() {
       year: new Date().getFullYear().toString(),
       client: "Brand Name / Team",
       location: "Autodromo Nazionale Monza, Italy",
-      duration: "02:30",
+      duration: "",
       posterImage: "/images/gt-night-race.jpg",
       videoPreviewUrl: "/videos/formula.webm",
       fullVideoUrl: "/videos/formula.webm",
@@ -439,11 +452,20 @@ export default function ManagePage() {
   const handleSaveProjectModal = async () => {
     if (!editingProject) return;
 
+    const projectToSave = { ...editingProject };
+    // If duration is not set, calculate automatically from video before saving
+    if (!projectToSave.duration && (projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl)) {
+      const autoDur = await detectVideoDuration(projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl);
+      if (autoDur) {
+        projectToSave.duration = autoDur;
+      }
+    }
+
     let success = false;
     if (isCreatingNew) {
-      success = await addProject(editingProject);
+      success = await addProject(projectToSave);
     } else {
-      success = await updateProject(editingProject);
+      success = await updateProject(projectToSave);
     }
 
     if (success) {
@@ -452,6 +474,38 @@ export default function ManagePage() {
       alert(
         "Errore durante il salvataggio del progetto. Verifica che Cloudflare R2 sia configurato su Vercel con le variabili d'ambiente corrette per abilitare la persistenza."
       );
+    }
+  };
+
+  // Batch calculate durations for all existing projects
+  const handleBatchRecalculateDurations = async () => {
+    if (projects.length === 0) return;
+    setIsBatchCalculating(true);
+    let updatedCount = 0;
+    try {
+      const updated = await Promise.all(
+        projects.map(async (p) => {
+          const videoUrl = p.fullVideoUrl || p.videoPreviewUrl;
+          if (!videoUrl) return p;
+          const dur = await detectVideoDuration(videoUrl);
+          if (dur && dur !== p.duration) {
+            updatedCount++;
+            return { ...p, duration: dur };
+          }
+          return p;
+        })
+      );
+      if (updatedCount > 0) {
+        await saveAll(updated, settings);
+        alert(`Durata calcolata e aggiornata con successo per ${updatedCount} progetti.`);
+      } else {
+        alert("Tutte le durate dei progetti sono già aggiornate.");
+      }
+    } catch (e) {
+      console.error("Batch duration calculation error:", e);
+      alert("Si è verificato un errore durante il calcolo automatico delle durate.");
+    } finally {
+      setIsBatchCalculating(false);
     }
   };
 
@@ -834,12 +888,22 @@ export default function ManagePage() {
                 </p>
               </div>
 
-              <button
-                onClick={handleOpenCreateNew}
-                className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer"
-              >
-                [ + nuovo progetto ]
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleBatchRecalculateDurations}
+                  disabled={isBatchCalculating || projects.length === 0}
+                  className="text-xs font-mono text-white/60 hover:text-white hover:italic transition-colors cursor-pointer disabled:opacity-30"
+                  title="Rileva e aggiorna automaticamente la durata effettiva di tutti i video"
+                >
+                  {isBatchCalculating ? "[ calcolo durate in corso... ]" : "[ ⟳ calcola durate video ]"}
+                </button>
+                <button
+                  onClick={handleOpenCreateNew}
+                  className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer"
+                >
+                  [ + nuovo progetto ]
+                </button>
+              </div>
             </div>
 
             {/* Editorial Projects List */}
@@ -1995,9 +2059,33 @@ export default function ManagePage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-white/40 block">durata</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-white/40 block">durata (calcolata in automatico)</label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const targetUrl = editingProject.fullVideoUrl || editingProject.videoPreviewUrl;
+                        if (!targetUrl) {
+                          alert("Carica o inserisci prima l'URL di un video.");
+                          return;
+                        }
+                        setIsCalculatingDuration(true);
+                        const dur = await detectVideoDuration(targetUrl);
+                        setIsCalculatingDuration(false);
+                        if (dur) {
+                          setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                        } else {
+                          alert("Impossibile calcolare automaticamente la durata dal video specificato.");
+                        }
+                      }}
+                      className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer"
+                    >
+                      {isCalculatingDuration ? "[ rilevamento... ]" : "[ ⟳ calcola dal video ]"}
+                    </button>
+                  </div>
                   <input
                     type="text"
+                    placeholder="es. 02:45 (calcolato in automatico)"
                     value={editingProject.duration}
                     onChange={(e) =>
                       setEditingProject({ ...editingProject, duration: e.target.value })
@@ -2068,9 +2156,12 @@ export default function ManagePage() {
                           const f = e.target.files?.[0];
                           if (f) {
                             setIsUploading("proj-preview");
+                            detectVideoDuration(f).then((dur) => {
+                              if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                            });
                             try {
                               const path = await handleUploadFile(f, "video");
-                              if (path) setEditingProject({ ...editingProject, videoPreviewUrl: path });
+                              if (path) setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
                             } catch (err) {
                               alert(err instanceof Error ? err.message : "Errore");
                             } finally {
@@ -2085,6 +2176,12 @@ export default function ManagePage() {
                   <input
                     type="text"
                     value={editingProject.videoPreviewUrl}
+                    onBlur={async () => {
+                      if (!editingProject.duration && editingProject.videoPreviewUrl) {
+                        const dur = await detectVideoDuration(editingProject.videoPreviewUrl);
+                        if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                      }
+                    }}
                     onChange={(e) =>
                       setEditingProject({
                         ...editingProject,
@@ -2108,9 +2205,12 @@ export default function ManagePage() {
                           const f = e.target.files?.[0];
                           if (f) {
                             setIsUploading("proj-full");
+                            detectVideoDuration(f).then((dur) => {
+                              if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                            });
                             try {
                               const path = await handleUploadFile(f, "video");
-                              if (path) setEditingProject({ ...editingProject, fullVideoUrl: path });
+                              if (path) setEditingProject((prev) => (prev ? { ...prev, fullVideoUrl: path } : null));
                             } catch (err) {
                               alert(err instanceof Error ? err.message : "Errore");
                             } finally {
@@ -2125,6 +2225,12 @@ export default function ManagePage() {
                   <input
                     type="text"
                     value={editingProject.fullVideoUrl}
+                    onBlur={async () => {
+                      if (editingProject.fullVideoUrl) {
+                        const dur = await detectVideoDuration(editingProject.fullVideoUrl);
+                        if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                      }
+                    }}
                     onChange={(e) =>
                       setEditingProject({
                         ...editingProject,
