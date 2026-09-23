@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { LOCALIZED_PROJECTS, LocalizedProject } from "@/data/translations";
 import { isRequestAuthenticated } from "@/utils/serverAuth";
-import { isR2Configured, getR2Content, putR2Content, getR2Status } from "@/utils/r2";
+import { isR2Configured, getR2Content, putR2Content, getR2Status, getR2BucketName } from "@/utils/r2";
 
 export interface SocialChannel {
   id: string;
@@ -195,7 +195,7 @@ export async function POST(req: Request) {
     if (!savedToR2 && !savedToDisk) {
       const missingVars = getR2Status().missing;
       const details = r2ErrorMsg
-        ? `Errore Cloudflare R2: ${r2ErrorMsg}`
+        ? `Errore Cloudflare R2: ${r2ErrorMsg} [Bucket: "${getR2BucketName()}"]`
         : missingVars.length > 0
         ? `Cloudflare R2 non configurato su Vercel (mancano: ${missingVars.join(", ")})`
         : "Impossibile scrivere sia su R2 che su disco.";

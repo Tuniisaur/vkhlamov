@@ -79,7 +79,7 @@ export async function createR2PresignedUpload(params: {
   key: string;
 }> {
   const s3 = getR2Client();
-  const bucket = process.env.R2_BUCKET_NAME!;
+  const bucket = getR2BucketName();
 
   const ext = path.extname(params.filename).toLowerCase();
   const baseName = path
