@@ -80,9 +80,9 @@ export default function SoonHeroLayout({ onSelectProject }: SoonHeroLayoutProps)
           document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" });
         }, 150);
       } else if (tabParam === "contact") {
-        setActiveTab("contact");
+        setTimeout(() => setActiveTab("contact"), 0);
       } else if (tabParam === "about") {
-        setActiveTab("about");
+        setTimeout(() => setActiveTab("about"), 0);
       }
     }
   }, []);

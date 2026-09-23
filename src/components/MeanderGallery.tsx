@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LocalizedProject } from "@/data/translations";
@@ -43,7 +43,7 @@ function StorySkeletonCard({ index }: { index: string }) {
       {/* Metadata Skeleton */}
       <div className="mt-4 grid grid-cols-8 gap-2">
         <div className="mt-0.5">
-          <span className="inline-block h-3.5 w-6 rounded bg-white/[0.08] animate-pulse" />
+          <span className="text-xs font-mono text-white/30">{index}</span>
         </div>
         <div className="col-span-7 space-y-2">
           {/* Title skeleton */}

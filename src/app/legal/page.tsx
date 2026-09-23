@@ -36,7 +36,7 @@ export default function LegalPage() {
         {/* Title */}
         <section className="space-y-3">
           <span className="text-[11px] uppercase tracking-widest text-white/40 block">
-            // LEGAL DOCUMENTATION & DATA GOVERNANCE
+            {"//"} LEGAL DOCUMENTATION & DATA GOVERNANCE
           </span>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-light text-white tracking-tight lowercase italic">
             legal, privacy &amp; copyright
@@ -51,7 +51,7 @@ export default function LegalPage() {
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <h2 className="text-base sm:text-lg text-white font-medium tracking-wide uppercase">
-              01 // Privacy Policy (GDPR — Regulation EU 2016/679)
+              01 {"//"} Privacy Policy (GDPR — Regulation EU 2016/679)
             </h2>
           </div>
 
@@ -110,7 +110,7 @@ export default function LegalPage() {
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <h2 className="text-base sm:text-lg text-white font-medium tracking-wide uppercase">
-              02 // Cookie Policy (ePrivacy Directive 2002/58/EC &amp; EDPB Guidelines)
+              02 {"//"} Cookie Policy (ePrivacy Directive 2002/58/EC &amp; EDPB Guidelines)
             </h2>
           </div>
 
@@ -160,14 +160,14 @@ export default function LegalPage() {
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <h2 className="text-base sm:text-lg text-white font-medium tracking-wide uppercase">
-              03 // Intellectual Property &amp; Trademark Disclaimer (Fair Use / Showcase)
+              03 {"//"} Intellectual Property &amp; Trademark Disclaimer (Fair Use / Showcase)
             </h2>
           </div>
 
           <div className="space-y-4 text-xs leading-relaxed text-white/70 font-light">
             <div className="space-y-2">
               <span className="text-white font-medium block uppercase tracking-wider text-[11px]">
-                // Copyright &amp; Authorship of Audiovisual Works
+                {"//"} Copyright &amp; Authorship of Audiovisual Works
               </span>
               <p>
                 All 4K films, motion sequences, film frames, photographic stills, visual concepts, edits, color grades, and audio compositions displayed on this website are original intellectual works protected under international copyright conventions and intellectual property laws.
@@ -179,7 +179,7 @@ export default function LegalPage() {
 
             <div className="p-4 rounded-lg bg-white/[0.02] border border-white/10 space-y-2">
               <span className="text-[10px] uppercase text-white/40 block tracking-widest">
-                // Automotive Trademarks, Racing Liveries &amp; Directorial Showcase
+                {"//"} Automotive Trademarks, Racing Liveries &amp; Directorial Showcase
               </span>
               <p className="text-white/80">
                 All vehicle designs, brand names, registered trademarks, logos, racing series emblems (including FIA, WEC, Formula, GT), and team liveries featured in the video clips and photographic stills are the exclusive property of their respective owners.
@@ -191,7 +191,7 @@ export default function LegalPage() {
 
             <div className="space-y-2 pt-2">
               <span className="text-white font-medium block uppercase tracking-wider text-[11px]">
-                // Image Rights &amp; Production Disclosures
+                {"//"} Image Rights &amp; Production Disclosures
               </span>
               <p className="text-white/60">
                 Audiovisual content was produced within commercial assignments, authorized trackside credentials, or official media accreditation. For any inquiries or clearance requests regarding image rights, please contact <a href="mailto:valerio@vkhlamov.com" className="text-white underline">valerio@vkhlamov.com</a> for prompt verification.
@@ -203,7 +203,7 @@ export default function LegalPage() {
         {/* ── SECTION 4: STUDIO INFORMATION & FORMAL CONTACTS ── */}
         <section className="space-y-4 pt-8 border-t border-white/10 text-xs text-white/50">
           <div className="text-[11px] text-white/40 uppercase tracking-widest">
-            // FORMAL CONTACTS &amp; STUDIO DETAILS
+            {"//"} FORMAL CONTACTS &amp; STUDIO DETAILS
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-white/70">
             <div>

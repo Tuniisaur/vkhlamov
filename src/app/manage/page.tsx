@@ -88,8 +88,23 @@ export default function ManagePage() {
   }, []);
 
   useEffect(() => {
-    fetchMedia();
-  }, [fetchMedia]);
+    let ignore = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/media");
+        if (res.ok && !ignore) {
+          const data = await res.json();
+          setMediaFiles(data);
+        }
+      } catch (err) {
+        console.warn("Could not fetch media list:", err);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleUploadFile = async (
     file: File,
@@ -225,26 +240,29 @@ export default function ManagePage() {
 
   // Sync state when context settings load
   useEffect(() => {
-    setHeroVideoUrl(settings.heroVideo);
-    setContactForm({
-      contactEmail: settings.contactEmail,
-      contactPhone: settings.contactPhone,
-      representation: settings.representation,
-      instagramUrl: settings.instagramUrl,
-      vimeoUrl: settings.vimeoUrl,
-    });
-    if (settings.channels && settings.channels.length > 0) {
-      setChannels(settings.channels);
-    }
-    if (settings.footerLinks && settings.footerLinks.length > 0) {
-      setFooterLinks(settings.footerLinks);
-    }
-    if (settings.about) {
-      setAboutForm({
-        ...DEFAULT_ABOUT,
-        ...settings.about,
+    const timer = setTimeout(() => {
+      setHeroVideoUrl(settings.heroVideo);
+      setContactForm({
+        contactEmail: settings.contactEmail,
+        contactPhone: settings.contactPhone,
+        representation: settings.representation,
+        instagramUrl: settings.instagramUrl,
+        vimeoUrl: settings.vimeoUrl,
       });
-    }
+      if (settings.channels && settings.channels.length > 0) {
+        setChannels(settings.channels);
+      }
+      if (settings.footerLinks && settings.footerLinks.length > 0) {
+        setFooterLinks(settings.footerLinks);
+      }
+      if (settings.about) {
+        setAboutForm({
+          ...DEFAULT_ABOUT,
+          ...settings.about,
+        });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [settings]);
 
   // Check active server session on mount
@@ -641,7 +659,7 @@ export default function ManagePage() {
       <div className="min-h-screen bg-[#050505] text-[#ececec] flex flex-col justify-between p-6 sm:p-12 font-mono selection:bg-white selection:text-black">
         {/* Top security header */}
         <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-white/40">
-          <span>[ valeriy khlamov // studio gateway ]</span>
+          <span>[ valeriy khlamov {"//"} studio gateway ]</span>
           <span className="hidden sm:inline text-white/20">SHA-512 • PBKDF2 PROTECTED</span>
         </div>
 
@@ -723,7 +741,7 @@ export default function ManagePage() {
       <header className="w-full border-b border-white/10 px-3 sm:px-8 py-3.5 sm:py-5 safe-top flex flex-wrap items-center justify-between gap-2 font-mono text-xs tracking-wider">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <span className="text-white font-medium">[ VALERIY KHLAMOV ]</span>
-          <span className="text-white/40 hidden sm:inline">// STUDIO CMS</span>
+          <span className="text-white/40 hidden sm:inline">{"//"} STUDIO CMS</span>
           <span className="text-white/30 text-[10px] sm:text-[11px]">
             {saveStatus === "saving" ? "[ salvataggio... ]" : "[ online & synced ]"}
           </span>
@@ -756,7 +774,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 01 // film & progetti ({projects.length}) ]
+          [ 01 {"//"} film & progetti ({projects.length}) ]
         </button>
 
         <button
@@ -767,7 +785,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 02 // video home ]
+          [ 02 {"//"} video home ]
         </button>
 
         <button
@@ -778,7 +796,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 03 // bio & about ]
+          [ 03 {"//"} bio & about ]
         </button>
 
         <button
@@ -789,7 +807,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 04 // contatti ]
+          [ 04 {"//"} contatti ]
         </button>
 
         <button
@@ -800,7 +818,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 05 // libreria media ]
+          [ 05 {"//"} libreria media ]
         </button>
 
         <button
@@ -811,7 +829,7 @@ export default function ManagePage() {
               : "text-white/40 hover:text-white"
           }`}
         >
-          [ 06 // backup & pin ]
+          [ 06 {"//"} backup & pin ]
         </button>
       </nav>
 
@@ -1067,7 +1085,7 @@ export default function ManagePage() {
               <div className="lg:col-span-6 space-y-6 font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                    // colonna sinistra: direzione & biografia
+                    {"//"} colonna sinistra: direzione & biografia
                   </span>
                 </div>
 
@@ -1145,7 +1163,7 @@ export default function ManagePage() {
               <div className="lg:col-span-6 space-y-6 font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                    // colonna destra: specifiche tecniche & accreditamenti
+                    {"//"} colonna destra: specifiche tecniche & accreditamenti
                   </span>
                 </div>
 
@@ -1276,7 +1294,7 @@ export default function ManagePage() {
                   {/* Add new custom block */}
                   <div className="pt-2 space-y-2">
                     <span className="text-[11px] text-white/40 block">
-                      // aggiungi nuovo blocco informativo
+                      {"//"} aggiungi nuovo blocco informativo
                     </span>
                     <div className="space-y-2">
                       <input
@@ -1321,7 +1339,7 @@ export default function ManagePage() {
             <div className="pt-8 border-t border-white/10 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                  // anteprima in tempo reale (come appare in homepage all&apos;apertura di &quot;about&quot;)
+                  {"//"} anteprima in tempo reale (come appare in homepage all&apos;apertura di &quot;about&quot;)
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400">
                   ● live preview
@@ -1509,7 +1527,7 @@ export default function ManagePage() {
 
                 {/* Add new channel */}
                 <div className="pt-2 space-y-2">
-                  <span className="text-[11px] text-white/40 block">// aggiungi nuovo canale</span>
+                  <span className="text-[11px] text-white/40 block">{"//"} aggiungi nuovo canale</span>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
@@ -1595,7 +1613,7 @@ export default function ManagePage() {
 
                 {/* Add new footer link */}
                 <div className="pt-2 space-y-2">
-                  <span className="text-[11px] text-white/40 block">// aggiungi nuovo link al footer</span>
+                  <span className="text-[11px] text-white/40 block">{"//"} aggiungi nuovo link al footer</span>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
@@ -1700,7 +1718,7 @@ export default function ManagePage() {
             {/* Video List */}
             <div className="space-y-4">
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
-                <span>// file video ({activeVideos.length})</span>
+                <span>{"//"} file video ({activeVideos.length})</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {activeVideos.map((vid) => (
@@ -1743,7 +1761,7 @@ export default function ManagePage() {
             {/* Image List */}
             <div className="space-y-4 pt-6 border-t border-white/10">
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
-                <span>// file immagini ({activeImages.length})</span>
+                <span>{"//"} file immagini ({activeImages.length})</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {activeImages.map((img) => (
@@ -1796,7 +1814,7 @@ export default function ManagePage() {
 
             {/* Backup options */}
             <div className="space-y-4 pb-6 border-b border-white/10">
-              <div className="text-white/50 uppercase tracking-wider">// backup dati</div>
+              <div className="text-white/50 uppercase tracking-wider">{"//"} backup dati</div>
               <div className="flex flex-wrap items-center gap-6">
                 <button
                   onClick={handleExportBackup}
@@ -1830,7 +1848,7 @@ export default function ManagePage() {
 
             {/* Change PIN (Server Encrypted PBKDF2) */}
             <div className="space-y-4">
-              <div className="text-white/50 uppercase tracking-wider">// modifica pin di sicurezza server</div>
+              <div className="text-white/50 uppercase tracking-wider">{"//"} modifica pin di sicurezza server</div>
               <form onSubmit={handleChangePin} className="space-y-3 max-w-sm">
                 <div>
                   <label className="text-[10px] text-white/40 uppercase block mb-1">PIN Attuale</label>
@@ -1900,7 +1918,7 @@ export default function ManagePage() {
 
             {/* General Info */}
             <div className="space-y-6">
-              <div className="text-white/40 uppercase tracking-widest">// info generali</div>
+              <div className="text-white/40 uppercase tracking-widest">{"//"} info generali</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
@@ -2013,7 +2031,7 @@ export default function ManagePage() {
             {/* Media URLs */}
             {/* Media URLs */}
             <div className="space-y-6 pt-4 border-t border-white/10">
-              <div className="text-white/40 uppercase tracking-widest">// video & poster</div>
+              <div className="text-white/40 uppercase tracking-widest">{"//"} video & poster</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
@@ -2142,7 +2160,7 @@ export default function ManagePage() {
             <div className="space-y-4 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="text-white/40 uppercase tracking-widest">
-                  // stills & frames ({editingProject.stills?.length || 0})
+                  {"//"} stills & frames ({editingProject.stills?.length || 0})
                 </div>
 
                 <label className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">

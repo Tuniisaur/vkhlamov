@@ -10,21 +10,28 @@ import CustomCursor from "@/components/CustomCursor";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 
+interface FullscreenDoc extends Document {
+  webkitFullscreenElement?: Element;
+  mozFullScreenElement?: Element;
+  msFullscreenElement?: Element;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  mozCancelFullScreen?: () => Promise<void> | void;
+  msExitFullscreen?: () => Promise<void> | void;
+}
+
+interface FullscreenVideo extends HTMLVideoElement {
+  webkitDisplayingFullscreen?: boolean;
+  webkitEnterFullscreen?: () => void;
+  webkitExitFullscreen?: () => void;
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+}
+
 export default function ProjectDetailClient({ projectId }: { projectId: string }) {
   const { projects, settings, isLoading } = useSiteData();
   const currentProjects = projects.length > 0 ? projects : LOCALIZED_PROJECTS;
   const project = currentProjects.find((p) => p.id === projectId);
-
-  if (!project) {
-    if (isLoading) {
-      return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-          <div className="w-8 h-8 border border-white/20 border-t-white rounded-full animate-spin" />
-        </div>
-      );
-    }
-    notFound();
-  }
 
   // Circular navigation for previous and next films
   const currentIndex = currentProjects.findIndex((p) => p.id === projectId);
@@ -184,8 +191,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   const isDocFullscreen = () => {
     if (typeof document === "undefined") return false;
-    const doc = document as any;
-    const vid = videoRef.current as any;
+    const doc = document as FullscreenDoc;
+    const vid = videoRef.current as FullscreenVideo | null;
     return Boolean(
       doc.fullscreenElement ||
       doc.webkitFullscreenElement ||
@@ -205,7 +212,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       }
     };
 
-    const videoEl = videoRef.current as any;
+    const videoEl = videoRef.current as (HTMLVideoElement & {
+      addEventListener: (type: string, listener: () => void) => void;
+      removeEventListener: (type: string, listener: () => void) => void;
+    }) | null;
+
     const onVideoEnterFs = () => {
       setIsFullscreen(true);
     };
@@ -240,12 +251,12 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, []);
 
   const toggleFullscreen = async () => {
-    const video = videoRef.current as any;
+    const video = videoRef.current as FullscreenVideo | null;
     if (!video) return;
 
     if (isDocFullscreen()) {
       // Exit fullscreen
-      const doc = document as any;
+      const doc = document as FullscreenDoc;
       if (typeof doc.exitFullscreen === "function") {
         try {
           await doc.exitFullscreen();
@@ -321,21 +332,18 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           return;
         } catch {}
       }
-
       if (typeof video.webkitRequestFullscreen === "function") {
         try {
           video.webkitRequestFullscreen();
           return;
         } catch {}
       }
-
       if (typeof video.mozRequestFullScreen === "function") {
         try {
           video.mozRequestFullScreen();
           return;
         } catch {}
       }
-
       if (typeof video.msRequestFullscreen === "function") {
         try {
           video.msRequestFullscreen();
@@ -344,6 +352,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       }
     }
   };
+
+  if (!project) {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+          <div className="w-8 h-8 border border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      );
+    }
+    notFound();
+  }
 
   return (
     <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between p-3 sm:p-6 md:p-8 select-none">
@@ -401,7 +420,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </Link>
           <span className="text-white/20 hidden sm:inline">•</span>
           <span className="text-white/70 uppercase transition-colors duration-300 truncate max-w-full sm:max-w-none text-center">
-            0{currentIndex + 1} // {project.title.en || project.title.it}
+            0{currentIndex + 1} {"//"} {project.title.en || project.title.it}
           </span>
         </div>
       </header>

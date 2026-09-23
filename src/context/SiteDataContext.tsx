@@ -187,7 +187,16 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadData();
+    let ignore = false;
+    const run = async () => {
+      if (!ignore) {
+        await loadData();
+      }
+    };
+    run();
+    return () => {
+      ignore = true;
+    };
   }, [loadData]);
 
   // Persist both to state, localStorage and API

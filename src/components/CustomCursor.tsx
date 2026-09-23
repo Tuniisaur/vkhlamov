@@ -17,7 +17,10 @@ export default function CustomCursor() {
     if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
       return;
     }
-    setMounted(true);
+    const timer = setTimeout(() => {
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {

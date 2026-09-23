@@ -139,9 +139,7 @@ export default function LiquidLogo({
   const hoverMixRef = useRef(0);
   const velocitySmoothRef = useRef({ vx: 0, vy: 0 });
   const textureDirtyRef = useRef(true);
-  const lastGlobalPointerMoveRef = useRef(
-    typeof performance !== "undefined" ? performance.now() : 0
-  );
+  const lastGlobalPointerMoveRef = useRef(0);
 
   const idleStateRef = useRef<{
     active: boolean;
@@ -162,7 +160,7 @@ export default function LiquidLogo({
     last: { x: number; y: number; t: number } | null;
   }>({
     active: true,
-    startTime: typeof performance !== "undefined" ? performance.now() : 0,
+    startTime: 0,
     fadeIn: 1.0,
     ax1: 0.58,
     ax2: 0.12,
@@ -182,8 +180,10 @@ export default function LiquidLogo({
   // Load image if provided
   useEffect(() => {
     if (!image) {
-      imageElementRef.current = null;
-      setImageLoaded(false);
+      if (imageElementRef.current !== null) {
+        imageElementRef.current = null;
+        setImageLoaded(false);
+      }
       textureDirtyRef.current = true;
       return;
     }
@@ -764,6 +764,12 @@ export default function LiquidLogo({
       if (!program || !sourceTexture) return;
 
       const now = performance.now();
+      if (lastGlobalPointerMoveRef.current === 0) {
+        lastGlobalPointerMoveRef.current = now;
+      }
+      if (idleStateRef.current.startTime === 0) {
+        idleStateRef.current.startTime = now;
+      }
       const isActive = isInViewRef.current && isPageVisibleRef.current;
       if (!isActive) {
         idleStateRef.current.active = false;
