@@ -55,7 +55,12 @@ export default function ManagePage() {
     images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
   const [isUploading, setIsUploading] = useState<string | null>(null);
-  const [r2Info, setR2Info] = useState<{ configured: boolean; missing: string[] } | null>(null);
+  const [r2Info, setR2Info] = useState<{
+    configured: boolean;
+    missing: string[];
+    publicUrlConfigured?: boolean;
+    publicBase?: string;
+  } | null>(null);
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -103,7 +108,7 @@ export default function ManagePage() {
     file: File,
     category?: "video" | "image"
   ): Promise<string | null> => {
-    // 1. Direct upload to Cloudflare R2 via Presigned S3 URL (bypasses server payload limits)
+    // 1. Direct upload to Cloudflare R2 via Presigned S3 URL (bypasses server payload limits for large videos)
     try {
       const presignedRes = await fetch("/api/media/presigned", {
         method: "POST",
@@ -118,27 +123,28 @@ export default function ManagePage() {
       if (presignedRes.ok) {
         const presignedData = await presignedRes.json();
         if (presignedData.r2 && presignedData.uploadUrl) {
+          const headers: Record<string, string> = {};
+          if (file.type) {
+            headers["Content-Type"] = file.type;
+          }
           const uploadRes = await fetch(presignedData.uploadUrl, {
             method: "PUT",
             body: file,
-            headers: {
-              "Content-Type": file.type || "application/octet-stream",
-            },
+            headers,
           });
 
-          if (!uploadRes.ok) {
-            throw new Error(`Upload diretto su Cloudflare R2 non riuscito (HTTP ${uploadRes.status})`);
+          if (uploadRes.ok) {
+            await fetchMedia();
+            return presignedData.publicUrl;
           }
-
-          await fetchMedia();
-          return presignedData.publicUrl;
+          console.warn(`Presigned R2 PUT returned status ${uploadRes.status}, falling back to server upload.`);
         }
       }
     } catch (presignedErr: unknown) {
-      console.warn("Upload diretto R2 non riuscito o fallback locale:", presignedErr);
+      console.warn("Upload diretto R2 via presigned URL non riuscito (es. policy bucket o CORS):", presignedErr);
     }
 
-    // 2. Standard Server Fallback
+    // 2. Server Upload Fallback (uploads directly to R2 bucket via server-side S3 client)
     const fd = new FormData();
     fd.append("file", file);
     if (category) fd.append("type", category);
@@ -806,8 +812,14 @@ export default function ManagePage() {
                       "\n• "
                     )}\n\nCome risolvere:\n1. Vai su Vercel -> Project Settings -> Environment Variables\n2. Inserisci le variabili mancanti\n3. Esegui un Redeploy del progetto.`
                   );
+                } else if (r2Info.publicUrlConfigured) {
+                  alert(
+                    `Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\n\nDominio pubblico R2:\n${r2Info.publicBase}\n\nIMPORTANTE:\nAssicurati che su Cloudflare (Dashboard -> R2 -> [Tuo Bucket] -> Settings -> Public Access) il sottodominio r2.dev sia impostato su "Allowed" (clicca "Allow Access" e digita "allow").\nSe non è abilitato, Cloudflare bloccherà le immagini con 403 Forbidden.`
+                  );
                 } else {
-                  alert("Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\nTutti i contenuti e file vengono salvati sul bucket Cloudflare.");
+                  alert(
+                    `Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\n\nStreaming Proxy: ATTIVO (/api/media/stream/)\nI video e le immagini vengono serviti direttamente da Next.js tramite stream autenticato S3.\n\nConsiglio facoltativo per CDN ultra-veloce:\n1. Nel pannello Cloudflare -> R2 -> [Bucket] -> Settings -> Public Access -> "Allow Access" sul sottodominio r2.dev.\n2. Inserisci la variabile R2_PUBLIC_URL su Vercel con https://pub-xxxxxx.r2.dev`
+                  );
                 }
               }}
               className={`cursor-pointer transition-colors text-[10px] sm:text-[11px] ${
@@ -816,7 +828,11 @@ export default function ManagePage() {
                   : "text-amber-400/90 hover:text-amber-300 hover:italic"
               }`}
             >
-              {r2Info.configured ? "[ R2: connesso ✓ ]" : "[ R2: mancante ⚠ ]"}
+              {r2Info.configured
+                ? r2Info.publicUrlConfigured
+                  ? "[ R2: CDN connesso ✓ ]"
+                  : "[ R2: proxy attivo ✓ ]"
+                : "[ R2: mancante ⚠ ]"}
             </button>
           )}
         </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Readable } from "stream";
 import { getR2Client, getR2BucketName, isR2Configured } from "@/utils/r2";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
@@ -21,7 +22,7 @@ export async function GET(
     const s3 = getR2Client();
     const bucket = getR2BucketName();
 
-    // Check Range request header (useful for video scrubbing)
+    // Check Range request header (essential for video timeline scrubbing)
     const rangeHeader = req.headers.get("range");
 
     const command = new GetObjectCommand({
@@ -35,13 +36,27 @@ export async function GET(
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const contentType = response.ContentType || "application/octet-stream";
+    let contentType = response.ContentType;
+    if (!contentType || contentType === "application/octet-stream") {
+      const lower = fullKey.toLowerCase();
+      if (lower.endsWith(".mp4")) contentType = "video/mp4";
+      else if (lower.endsWith(".mov")) contentType = "video/quicktime";
+      else if (lower.endsWith(".webm")) contentType = "video/webm";
+      else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) contentType = "image/jpeg";
+      else if (lower.endsWith(".png")) contentType = "image/png";
+      else if (lower.endsWith(".webp")) contentType = "image/webp";
+      else if (lower.endsWith(".avif")) contentType = "image/avif";
+      else contentType = "application/octet-stream";
+    }
+
     const isPartial = Boolean(response.ContentRange);
 
     const headers: Record<string, string> = {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
       "Accept-Ranges": "bytes",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
     };
 
     if (response.ContentLength !== undefined) {
@@ -51,10 +66,20 @@ export async function GET(
       headers["Content-Range"] = response.ContentRange;
     }
 
-    // Stream response
-    const stream = response.Body.transformToWebStream();
+    // Convert response.Body across Node.js runtime and Web Stream environments
+    let bodyData: BodyInit;
+    if (typeof (response.Body as any)?.transformToWebStream === "function") {
+      bodyData = (response.Body as any).transformToWebStream();
+    } else if (response.Body instanceof Readable) {
+      bodyData = Readable.toWeb(response.Body) as ReadableStream;
+    } else if (typeof (response.Body as any)?.transformToByteArray === "function") {
+      const bytes = await (response.Body as any).transformToByteArray();
+      bodyData = bytes;
+    } else {
+      bodyData = response.Body as unknown as BodyInit;
+    }
 
-    return new NextResponse(stream, {
+    return new Response(bodyData, {
       status: isPartial ? 206 : 200,
       headers,
     });

@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
+  PutBucketCorsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import path from "path";
@@ -29,15 +30,20 @@ export function getR2BucketName(): string {
 export function getR2Status(): {
   configured: boolean;
   missing: string[];
+  publicUrlConfigured: boolean;
+  publicBase: string;
 } {
   const missing: string[] = [];
   if (!getR2AccountId()) missing.push("R2_ACCOUNT_ID");
   if (!cleanEnv(process.env.R2_ACCESS_KEY_ID)) missing.push("R2_ACCESS_KEY_ID");
   if (!cleanEnv(process.env.R2_SECRET_ACCESS_KEY)) missing.push("R2_SECRET_ACCESS_KEY");
   if (!getR2BucketName()) missing.push("R2_BUCKET_NAME");
+  const publicBase = getR2PublicBase();
   return {
     configured: missing.length === 0,
     missing,
+    publicUrlConfigured: Boolean(publicBase),
+    publicBase,
   };
 }
 
@@ -67,6 +73,10 @@ export function getR2Client(): S3Client {
 export function getR2PublicBase(): string {
   let base = cleanEnv(process.env.R2_PUBLIC_URL);
   if (!base) return "";
+  // If the user pasted the private S3 API endpoint instead of a public CDN domain, fallback to streaming proxy
+  if (base.includes("r2.cloudflarestorage.com")) {
+    return "";
+  }
   if (!base.startsWith("http://") && !base.startsWith("https://")) {
     base = `https://${base}`;
   }
@@ -83,6 +93,53 @@ export function getR2ItemUrl(key: string): string {
   return `/api/media/stream/${cleanKey}`;
 }
 
+let corsConfigured = false;
+export async function ensureR2Cors(): Promise<void> {
+  if (corsConfigured || !isR2Configured()) return;
+  try {
+    const s3 = getR2Client();
+    const bucket = getR2BucketName();
+    await s3.send(
+      new PutBucketCorsCommand({
+        Bucket: bucket,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedOrigins: ["*"],
+              AllowedMethods: ["GET", "PUT", "POST", "HEAD", "DELETE"],
+              AllowedHeaders: ["*"],
+              ExposeHeaders: ["ETag"],
+              MaxAgeSeconds: 3600,
+            },
+          ],
+        },
+      })
+    );
+    corsConfigured = true;
+  } catch (err) {
+    // If the API token does not have admin permissions to configure CORS, log silently
+    console.warn("Could not set R2 CORS configuration automatically:", err);
+  }
+}
+
+export async function uploadBufferToR2(params: {
+  key: string;
+  buffer: Buffer;
+  contentType?: string;
+}): Promise<string> {
+  const s3 = getR2Client();
+  const bucket = getR2BucketName();
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: params.key,
+      Body: params.buffer,
+      ContentType: params.contentType || "application/octet-stream",
+    })
+  );
+  return getR2ItemUrl(params.key);
+}
+
 export async function createR2PresignedUpload(params: {
   filename: string;
   contentType: string;
@@ -92,6 +149,9 @@ export async function createR2PresignedUpload(params: {
   publicUrl: string;
   key: string;
 }> {
+  // Best-effort ensure CORS is enabled on the bucket so direct browser uploads don't get blocked
+  ensureR2Cors().catch(() => {});
+
   const s3 = getR2Client();
   const bucket = getR2BucketName();
 
@@ -106,10 +166,12 @@ export async function createR2PresignedUpload(params: {
   const folder = params.folder || (params.contentType.startsWith("video/") ? "videos" : "images");
   const uniqueKey = `${folder}/${baseName || "media"}-${crypto.randomBytes(4).toString("hex")}${ext}`;
 
+  // NOTE: We deliberately do NOT restrict ContentType in PutObjectCommand here.
+  // This allows the browser to send any matching or fallback Content-Type header without
+  // encountering AWS SignatureDoesNotMatch / header signature mismatch errors.
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: uniqueKey,
-    ContentType: params.contentType,
   });
 
   // URL valid for 60 minutes

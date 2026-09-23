@@ -3,7 +3,13 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { isRequestAuthenticated } from "@/utils/serverAuth";
-import { isR2Configured, listR2Objects, deleteR2Object, getR2PublicBase } from "@/utils/r2";
+import {
+  isR2Configured,
+  listR2Objects,
+  deleteR2Object,
+  getR2PublicBase,
+  uploadBufferToR2,
+} from "@/utils/r2";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const VIDEOS_DIR = path.join(PUBLIC_DIR, "videos");
@@ -175,6 +181,30 @@ export async function POST(req: Request) {
       .slice(0, 50);
 
     const safeFilename = `${cleanBaseName || "media"}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // If Cloudflare R2 is configured, upload directly to the R2 bucket (works on Vercel)
+    if (isR2Configured()) {
+      const folder = isVideo ? "videos" : "images";
+      const key = `${folder}/${safeFilename}`;
+      const itemUrl = await uploadBufferToR2({
+        key,
+        buffer,
+        contentType: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
+      });
+
+      return NextResponse.json({
+        success: true,
+        name: safeFilename,
+        path: itemUrl,
+        key,
+        size: formatBytes(buffer.length),
+        type: isVideo ? "video" : "image",
+      });
+    }
+
+    // Local disk fallback (only used in local offline environment)
     const targetDir = isVideo ? VIDEOS_DIR : IMAGES_DIR;
     const targetPath = path.resolve(targetDir, safeFilename);
 
@@ -184,8 +214,6 @@ export async function POST(req: Request) {
     }
 
     // Write file to disk
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     await fs.writeFile(targetPath, buffer);
 
     const relativePath = isVideo
