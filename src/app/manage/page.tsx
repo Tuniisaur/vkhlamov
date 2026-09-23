@@ -880,11 +880,17 @@ export default function ManagePage() {
 
                   {/* Details */}
                   <div className="md:col-span-6 space-y-1.5">
-                    <div className="flex items-center gap-3 text-xs font-mono text-white/40">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono text-white/40">
                       <span>[{String(idx + 1).padStart(2, "0")}]</span>
                       <span>{proj.year}</span>
                       <span>•</span>
                       <span>{proj.categoryLabel.en || proj.categoryLabel.it}</span>
+                      {proj.location && (
+                        <>
+                          <span>•</span>
+                          <span className="text-white/60">{proj.location}</span>
+                        </>
+                      )}
                     </div>
 
                     <h3 className="text-lg sm:text-xl font-light tracking-tight text-white">

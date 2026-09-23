@@ -515,9 +515,33 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
               {project.title.en || project.title.it}
             </h2>
-            <p className="text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
-              {project.year} &nbsp;•&nbsp; {project.categoryLabel.en || project.categoryLabel.it}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
+              <span>{project.year}</span>
+              <span>•</span>
+              <span>{project.categoryLabel.en || project.categoryLabel.it}</span>
+              {project.location && (
+                <>
+                  <span>•</span>
+                  <span className="text-white/80">{project.location}</span>
+                </>
+              )}
+              {project.duration && (
+                <>
+                  <span>•</span>
+                  <span>{project.duration}</span>
+                </>
+              )}
+            </div>
+            {project.subtitle && (project.subtitle.en || project.subtitle.it) && (
+              <p className="text-sm sm:text-base text-white/70 font-light tracking-wide pt-1">
+                {project.subtitle.en || project.subtitle.it}
+              </p>
+            )}
+            {project.description && (project.description.en || project.description.it) && (
+              <p className="text-xs sm:text-sm text-white/60 font-light leading-relaxed pt-1 max-w-3xl">
+                {project.description.en || project.description.it}
+              </p>
+            )}
           </div>
         </section>
 
