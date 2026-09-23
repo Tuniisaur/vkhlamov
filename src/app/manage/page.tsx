@@ -1842,6 +1842,33 @@ export default function ManagePage() {
             <div className="space-y-4">
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
                 <span>{"//"} file video ({activeVideos.length})</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/media/diagnose");
+                      const data = await res.json();
+                      const lines = [
+                        `STATO CLOUDFLARE R2 & MEDIA:`,
+                        `• Connessione R2: ${data.r2Configured ? "CONFIGURATO ✓" : "MANCANTE ⚠"}`,
+                        `• Bucket: "${data.bucketName || "non impostato"}" (S3: ${data.s3ConnectionSuccess ? "OK ✓" : `ERRORE: ${data.s3Error}`})`,
+                        `• File in R2: ${data.objectsList?.videosCount ?? 0} video, ${data.objectsList?.imagesCount ?? 0} immagini`,
+                        `• R2_PUBLIC_URL: ${data.rawPublicUrl || "(non impostata - streaming proxy attivo)"}`,
+                        data.publicUrlStatus?.tested
+                          ? `• Test URL Pubblico: HTTP ${data.publicUrlStatus.httpStatus} (${data.publicUrlStatus.accessible ? "FUNZIONANTE ✓" : "BLOCCATO 403/404 ⚠"})`
+                          : "",
+                        "",
+                        data.recommendations?.length ? `RACCOMANDAZIONI:\n• ${data.recommendations.join("\n• ")}` : "",
+                      ].filter(Boolean);
+                      alert(lines.join("\n"));
+                    } catch {
+                      alert("Errore durante l'esecuzione del test diagnostico.");
+                    }
+                  }}
+                  className="text-white/60 hover:text-white hover:italic transition-colors cursor-pointer text-[11px]"
+                >
+                  [ 🔍 diagnostica R2 & CDN ]
+                </button>
               </div>
               {activeVideos.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1863,6 +1890,14 @@ export default function ManagePage() {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
+                          <a
+                            href={vid.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-white/60 hover:text-white hover:italic transition-colors"
+                          >
+                            [ apri ↗ ]
+                          </a>
                           <button
                             onClick={() => handleCopy(vid.path)}
                             className="text-xs text-white/60 hover:text-white hover:italic transition-colors cursor-pointer"
@@ -1909,6 +1944,14 @@ export default function ManagePage() {
                         <div className="text-white font-light truncate">{img.name}</div>
                         <div className="text-[10px] text-white/30 truncate">{img.size}</div>
                         <div className="flex items-center justify-between pt-1 text-[11px]">
+                          <a
+                            href={img.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white/40 hover:text-white hover:italic transition-colors"
+                          >
+                            [ apri ↗ ]
+                          </a>
                           <button
                             onClick={() => handleCopy(img.path)}
                             className="text-white/50 hover:text-white hover:italic transition-colors cursor-pointer"

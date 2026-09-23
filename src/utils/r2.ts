@@ -218,6 +218,11 @@ export async function listR2Objects(): Promise<{
     const itemUrl = getR2ItemUrl(key);
 
     const isVideo = [".mp4", ".mov", ".webm", ".avi", ".mkv"].includes(ext) || key.startsWith("videos/");
+    const isImage = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif", ".svg"].includes(ext) || key.startsWith("images/");
+
+    // Skip database JSON files, dotfiles, or non-media artifacts
+    if (!isVideo && !isImage) continue;
+
     const entry = {
       name,
       path: itemUrl,
