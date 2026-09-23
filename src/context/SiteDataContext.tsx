@@ -230,7 +230,9 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!res.ok) {
-        throw new Error("Server responded with status " + res.status);
+        const errData = await res.json().catch(() => null);
+        const errMsg = errData?.error || `Server responded with status ${res.status}`;
+        throw new Error(errMsg);
       }
 
       setSaveStatus("saved");

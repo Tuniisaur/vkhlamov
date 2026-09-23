@@ -13,26 +13,6 @@ import {
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill } from "@/data/translations";
 
-type MediaItem = { name: string; path: string; size: string; key?: string };
-
-// Server media list for quick selection fallback
-const AVAILABLE_VIDEOS: MediaItem[] = [
-  { name: "sfondo portfolio (hero)", path: "/videos/sfondo%20portfolio.mov", size: "49.3 MB" },
-  { name: "formula apex", path: "/videos/formula.webm", size: "4.0 MB" },
-  { name: "hypercar pursuit", path: "/videos/hypercar.webm", size: "80.4 MB" },
-  { name: "rally wrc dust", path: "/videos/rally.webm", size: "3.2 MB" },
-  { name: "hero showreel 4k", path: "/videos/hero-showreel.webm", size: "12.9 MB" },
-  { name: "hero showreel 1080p", path: "/videos/hero-showreel-1080p.webm", size: "60.4 MB" },
-];
-
-const AVAILABLE_IMAGES: MediaItem[] = [
-  { name: "gt night race (monza)", path: "/images/gt-night-race.jpg", size: "814 KB" },
-  { name: "fpv pursuit chase", path: "/images/fpv-chase.jpg", size: "781 KB" },
-  { name: "rally wrc storage", path: "/images/rally-wrc.jpg", size: "1.0 MB" },
-  { name: "commercial monolith", path: "/images/commercial-hypercar.jpg", size: "848 KB" },
-  { name: "filmmaker paddock lab", path: "/images/filmmaker-paddock.jpg", size: "766 KB" },
-];
-
 export default function ManagePage() {
   const {
     projects,
@@ -184,11 +164,9 @@ export default function ManagePage() {
     }
   };
 
-  // Fallback combined list
-  const activeVideos =
-    mediaFiles.videos && mediaFiles.videos.length > 0 ? mediaFiles.videos : AVAILABLE_VIDEOS;
-  const activeImages =
-    mediaFiles.images && mediaFiles.images.length > 0 ? mediaFiles.images : AVAILABLE_IMAGES;
+  // Dynamic media files list (direct from Cloudflare R2 / server)
+  const activeVideos = mediaFiles.videos || [];
+  const activeImages = mediaFiles.images || [];
 
   // Project Editing Modal State
   const [editingProject, setEditingProject] = useState<LocalizedProject | null>(null);
@@ -461,12 +439,20 @@ export default function ManagePage() {
   const handleSaveProjectModal = async () => {
     if (!editingProject) return;
 
+    let success = false;
     if (isCreatingNew) {
-      await addProject(editingProject);
+      success = await addProject(editingProject);
     } else {
-      await updateProject(editingProject);
+      success = await updateProject(editingProject);
     }
-    setEditingProject(null);
+
+    if (success) {
+      setEditingProject(null);
+    } else {
+      alert(
+        "Errore durante il salvataggio del progetto. Verifica che Cloudflare R2 sia configurato su Vercel con le variabili d'ambiente corrette per abilitare la persistenza."
+      );
+    }
   };
 
   // Add Still to currently editing project
@@ -858,7 +844,12 @@ export default function ManagePage() {
 
             {/* Editorial Projects List */}
             <div className="space-y-6">
-              {projects.map((proj, idx) => (
+              {projects.length === 0 ? (
+                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
+                  Nessun progetto presente. Clicca su &quot;[ + nuovo progetto ]&quot; in alto per iniziare.
+                </div>
+              ) : (
+                projects.map((proj, idx) => (
                 <div
                   key={proj.id}
                   className="group border-b border-white/10 pb-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
@@ -941,10 +932,15 @@ export default function ManagePage() {
                     </Link>
 
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const title = proj.title.en || proj.title.it;
-                        if (confirm(`Eliminare il progetto "${title}"?`)) {
-                          deleteProject(proj.id);
+                        if (confirm(`Eliminare definitivamente il progetto "${title}"?`)) {
+                          const ok = await deleteProject(proj.id);
+                          if (!ok) {
+                            alert(
+                              "Errore durante l'eliminazione del progetto. Verifica che le variabili d'ambiente Cloudflare R2 siano configurate su Vercel."
+                            );
+                          }
                         }
                       }}
                       className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer"
@@ -953,8 +949,9 @@ export default function ManagePage() {
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
+          </div>
           </div>
         )}
 
@@ -1041,25 +1038,31 @@ export default function ManagePage() {
                 <span className="text-white/40 block">
                   oppure seleziona tra i video del server:
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {activeVideos.map((vid) => (
-                    <button
-                      key={vid.path}
-                      onClick={() => setHeroVideoUrl(vid.path)}
-                      className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
-                        heroVideoUrl === vid.path
-                          ? "border-white text-white italic"
-                          : "border-white/10 text-white/50 hover:text-white hover:border-white/30"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs">{vid.name}</span>
-                        {vid.size && <span className="text-[10px] text-white/30">{vid.size}</span>}
-                      </div>
-                      <div className="text-[10px] text-white/30 pt-0.5 truncate">{vid.path}</div>
-                    </button>
-                  ))}
-                </div>
+                {activeVideos.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {activeVideos.map((vid) => (
+                      <button
+                        key={vid.path}
+                        onClick={() => setHeroVideoUrl(vid.path)}
+                        className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
+                          heroVideoUrl === vid.path
+                            ? "border-white text-white italic"
+                            : "border-white/10 text-white/50 hover:text-white hover:border-white/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs">{vid.name}</span>
+                          {vid.size && <span className="text-[10px] text-white/30">{vid.size}</span>}
+                        </div>
+                        <div className="text-[10px] text-white/30 pt-0.5 truncate">{vid.path}</div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 border border-dashed border-white/10 rounded-lg text-white/30 text-[11px]">
+                    Nessun video caricato su Cloudflare R2 / server. Carica un video nella scheda &quot;File&quot; o inserisci l&apos;URL sopra.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1726,42 +1729,48 @@ export default function ManagePage() {
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
                 <span>{"//"} file video ({activeVideos.length})</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {activeVideos.map((vid) => (
-                  <div key={vid.path} className="space-y-2 group">
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                      <video
-                        src={vid.path}
-                        muted
-                        controls
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex items-start justify-between text-xs font-mono gap-2">
-                      <div className="overflow-hidden">
-                        <div className="text-white font-light truncate">{vid.name}</div>
-                        <div className="text-[10px] text-white/30 truncate">
-                          {vid.size} • {vid.path}
+              {activeVideos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {activeVideos.map((vid) => (
+                    <div key={vid.path} className="space-y-2 group">
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+                        <video
+                          src={vid.path}
+                          muted
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex items-start justify-between text-xs font-mono gap-2">
+                        <div className="overflow-hidden">
+                          <div className="text-white font-light truncate">{vid.name}</div>
+                          <div className="text-[10px] text-white/30 truncate">
+                            {vid.size} • {vid.path}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <button
+                            onClick={() => handleCopy(vid.path)}
+                            className="text-xs text-white/60 hover:text-white hover:italic transition-colors cursor-pointer"
+                          >
+                            {copiedPath === vid.path ? "[ copiato ]" : "[ copia ]"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMedia(vid.path, vid.key)}
+                            className="text-[11px] text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
+                          >
+                            [ elimina ]
+                          </button>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <button
-                          onClick={() => handleCopy(vid.path)}
-                          className="text-xs text-white/60 hover:text-white hover:italic transition-colors cursor-pointer"
-                        >
-                          {copiedPath === vid.path ? "[ copiato ]" : "[ copia ]"}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMedia(vid.path, vid.key)}
-                          className="text-[11px] text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
-                        >
-                          [ elimina ]
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
+                  Nessun video caricato su Cloudflare R2. Usa l&apos;area di upload sopra per caricare file video.
+                </div>
+              )}
             </div>
 
             {/* Image List */}
@@ -1769,39 +1778,45 @@ export default function ManagePage() {
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
                 <span>{"//"} file immagini ({activeImages.length})</span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {activeImages.map((img) => (
-                  <div key={img.path} className="space-y-2 group">
-                    <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-black">
-                      <Image
-                        src={img.path}
-                        alt={img.name}
-                        fill
-                        unoptimized
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="text-xs font-mono">
-                      <div className="text-white font-light truncate">{img.name}</div>
-                      <div className="text-[10px] text-white/30 truncate">{img.size}</div>
-                      <div className="flex items-center justify-between pt-1 text-[11px]">
-                        <button
-                          onClick={() => handleCopy(img.path)}
-                          className="text-white/50 hover:text-white hover:italic transition-colors cursor-pointer"
-                        >
-                          {copiedPath === img.path ? "[ copiato ]" : "[ copia ]"}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMedia(img.path, img.key)}
-                          className="text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
-                        >
-                          [ elimina ]
-                        </button>
+              {activeImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {activeImages.map((img) => (
+                    <div key={img.path} className="space-y-2 group">
+                      <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-black">
+                        <Image
+                          src={img.path}
+                          alt={img.name}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="text-xs font-mono">
+                        <div className="text-white font-light truncate">{img.name}</div>
+                        <div className="text-[10px] text-white/30 truncate">{img.size}</div>
+                        <div className="flex items-center justify-between pt-1 text-[11px]">
+                          <button
+                            onClick={() => handleCopy(img.path)}
+                            className="text-white/50 hover:text-white hover:italic transition-colors cursor-pointer"
+                          >
+                            {copiedPath === img.path ? "[ copiato ]" : "[ copia ]"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMedia(img.path, img.key)}
+                            className="text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
+                          >
+                            [ elimina ]
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
+                  Nessuna immagine caricata su Cloudflare R2. Usa l&apos;area di upload sopra per caricare file immagine.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2248,19 +2263,21 @@ export default function ManagePage() {
               </div>
 
               {/* Quick image shortcuts */}
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-white/30">
-                <span>scelta rapida:</span>
-                {activeImages.map((img) => (
-                  <button
-                    key={img.path}
-                    type="button"
-                    onClick={() => handleAddStill(img.path)}
-                    className="hover:text-white transition-colors cursor-pointer"
-                  >
-                    + {img.name}
-                  </button>
-                ))}
-              </div>
+              {activeImages.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-white/30">
+                  <span>scelta rapida:</span>
+                  {activeImages.map((img) => (
+                    <button
+                      key={img.path}
+                      type="button"
+                      onClick={() => handleAddStill(img.path)}
+                      className="hover:text-white transition-colors cursor-pointer"
+                    >
+                      + {img.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
 

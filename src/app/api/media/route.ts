@@ -273,18 +273,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Tentativo di path traversal rilevato" }, { status: 403 });
     }
 
-    // Check if file exists
+    // Unlink file if it exists on disk
     try {
       const stat = await fs.stat(resolvedPath);
-      if (!stat.isFile()) {
-        return NextResponse.json({ error: "Il target non è un file valido" }, { status: 400 });
+      if (stat.isFile()) {
+        await fs.unlink(resolvedPath);
       }
     } catch {
-      return NextResponse.json({ error: "File non trovato" }, { status: 404 });
+      // If the file is already gone or was not synced to Vercel disk, treat as deleted
     }
-
-    // Unlink file
-    await fs.unlink(resolvedPath);
 
     return NextResponse.json({
       success: true,

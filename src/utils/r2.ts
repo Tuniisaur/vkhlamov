@@ -1,6 +1,7 @@
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
@@ -142,5 +143,38 @@ export async function deleteR2Object(key: string): Promise<void> {
     Key: key,
   });
 
+  await s3.send(command);
+}
+
+export async function getR2Content<T>(key: string): Promise<T | null> {
+  if (!isR2Configured()) return null;
+  try {
+    const s3 = getR2Client();
+    const bucket = process.env.R2_BUCKET_NAME!;
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+    const res = await s3.send(command);
+    if (!res.Body) return null;
+    const str = await res.Body.transformToString();
+    return JSON.parse(str) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function putR2Content(key: string, data: unknown): Promise<void> {
+  if (!isR2Configured()) {
+    throw new Error("Cloudflare R2 non configurato");
+  }
+  const s3 = getR2Client();
+  const bucket = process.env.R2_BUCKET_NAME!;
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: JSON.stringify(data, null, 2),
+    ContentType: "application/json",
+  });
   await s3.send(command);
 }

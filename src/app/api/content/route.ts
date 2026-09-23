@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { LOCALIZED_PROJECTS, LocalizedProject } from "@/data/translations";
 import { isRequestAuthenticated } from "@/utils/serverAuth";
+import { isR2Configured, getR2Content, putR2Content } from "@/utils/r2";
 
 export interface SocialChannel {
   id: string;
@@ -90,6 +91,19 @@ const DATA_FILE_PATH = path.join(process.cwd(), "src", "data", "site-content.jso
 
 export async function GET() {
   try {
+    // 1. If Cloudflare R2 is configured, load content from R2
+    if (isR2Configured()) {
+      try {
+        const r2Data = await getR2Content<SiteDataPayload>("site-content.json");
+        if (r2Data && Array.isArray(r2Data.projects)) {
+          return NextResponse.json(r2Data);
+        }
+      } catch (r2Err) {
+        console.warn("Could not read site-content from R2, falling back to local:", r2Err);
+      }
+    }
+
+    // 2. Read local disk file
     const fileExists = await fs
       .access(DATA_FILE_PATH)
       .then(() => true)
@@ -151,15 +165,45 @@ export async function POST(req: Request) {
       lastUpdated: new Date().toISOString(),
     };
 
-    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(payloadToSave, null, 2), "utf-8");
+    let savedToR2 = false;
+    let savedToDisk = false;
+
+    // 1. If Cloudflare R2 is configured, persist directly to R2 bucket (works on Vercel without filesystem limits)
+    if (isR2Configured()) {
+      try {
+        await putR2Content("site-content.json", payloadToSave);
+        savedToR2 = true;
+      } catch (r2Err) {
+        console.error("Cloudflare R2 put error:", r2Err);
+      }
+    }
+
+    // 2. Also try writing to local disk (for offline local development)
+    try {
+      await fs.writeFile(DATA_FILE_PATH, JSON.stringify(payloadToSave, null, 2), "utf-8");
+      savedToDisk = true;
+    } catch (fsErr) {
+      // In serverless environments with read-only root filesystems (e.g. Vercel), this is expected
+      console.warn("Local disk write skipped in serverless environment:", fsErr);
+    }
+
+    if (!savedToR2 && !savedToDisk) {
+      return NextResponse.json(
+        {
+          error:
+            "Impossibile salvare i contenuti: il filesystem è in sola lettura e Cloudflare R2 non è ancora configurato su Vercel. Inserisci le variabili d'ambiente R2 nelle impostazioni del progetto per abilitare il salvataggio.",
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Contenuti aggiornati e salvati con successo sul server.",
+      message: "Contenuti aggiornati e salvati con successo.",
       data: payloadToSave,
     });
   } catch (err: unknown) {
-    console.error("Error writing site content:", err);
+    console.error("Error saving site content:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
       { error: "Failed to persist changes", details: message },
