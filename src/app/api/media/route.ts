@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { isRequestAuthenticated } from "@/utils/serverAuth";
+import { isR2Configured, listR2Objects, deleteR2Object, getR2PublicBase } from "@/utils/r2";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const VIDEOS_DIR = path.join(PUBLIC_DIR, "videos");
@@ -39,8 +40,21 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Read videos
-    const videos: { name: string; path: string; size: string }[] = [];
+    const videos: { name: string; path: string; size: string; key?: string }[] = [];
+    const images: { name: string; path: string; size: string; key?: string }[] = [];
+
+    // 1. Fetch from Cloudflare R2 if configured
+    if (isR2Configured()) {
+      try {
+        const r2Media = await listR2Objects();
+        videos.push(...r2Media.videos);
+        images.push(...r2Media.images);
+      } catch (r2Err) {
+        console.error("Cloudflare R2 listing error:", r2Err);
+      }
+    }
+
+    // 2. Also read local media as fallback/supplement
     try {
       const vFiles = await fs.readdir(VIDEOS_DIR);
       for (const file of vFiles) {
@@ -51,19 +65,20 @@ export async function GET(req: Request) {
         const filePath = path.join(VIDEOS_DIR, file);
         const stat = await fs.stat(filePath);
         if (stat.isFile()) {
-          videos.push({
-            name: file,
-            path: `/videos/${encodeURIComponent(file)}`,
-            size: formatBytes(stat.size),
-          });
+          const localPath = `/videos/${encodeURIComponent(file)}`;
+          if (!videos.some((v) => v.path === localPath)) {
+            videos.push({
+              name: file,
+              path: localPath,
+              size: formatBytes(stat.size),
+            });
+          }
         }
       }
     } catch (err) {
-      console.warn("Could not read videos dir:", err);
+      console.warn("Could not read local videos dir:", err);
     }
 
-    // Read images
-    const images: { name: string; path: string; size: string }[] = [];
     try {
       const iFiles = await fs.readdir(IMAGES_DIR);
       for (const file of iFiles) {
@@ -74,15 +89,18 @@ export async function GET(req: Request) {
         const filePath = path.join(IMAGES_DIR, file);
         const stat = await fs.stat(filePath);
         if (stat.isFile()) {
-          images.push({
-            name: file,
-            path: `/images/${encodeURIComponent(file)}`,
-            size: formatBytes(stat.size),
-          });
+          const localPath = `/images/${encodeURIComponent(file)}`;
+          if (!images.some((img) => img.path === localPath)) {
+            images.push({
+              name: file,
+              path: localPath,
+              size: formatBytes(stat.size),
+            });
+          }
         }
       }
     } catch (err) {
-      console.warn("Could not read images dir:", err);
+      console.warn("Could not read local images dir:", err);
     }
 
     return NextResponse.json({ videos, images });
@@ -188,7 +206,7 @@ export async function POST(req: Request) {
   }
 }
 
-// ── DELETE: Delete media file from disk (Protected) ──
+// ── DELETE: Delete media file from disk or Cloudflare R2 (Protected) ──
 export async function DELETE(req: Request) {
   const authenticated = await isRequestAuthenticated(req);
   if (!authenticated) {
@@ -196,8 +214,40 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    const { path: reqPath } = (await req.json()) as { path: string };
+    const body = (await req.json()) as { path?: string; key?: string };
+    const reqPath = body.path;
+    const reqKey = body.key;
 
+    if (!reqPath && !reqKey) {
+      return NextResponse.json({ error: "Percorso o chiave non valido" }, { status: 400 });
+    }
+
+    // 1. If Cloudflare R2 is configured, check if this is an R2 file
+    if (isR2Configured()) {
+      let r2Key = reqKey;
+      if (!r2Key && reqPath) {
+        const publicBase = getR2PublicBase();
+        if (publicBase && reqPath.startsWith(publicBase)) {
+          r2Key = reqPath.slice(publicBase.length).replace(/^\/+/, "");
+        } else if (reqPath.startsWith("http://") || reqPath.startsWith("https://")) {
+          try {
+            const urlObj = new URL(reqPath);
+            r2Key = urlObj.pathname.replace(/^\/+/, "");
+          } catch {}
+        }
+      }
+
+      if (r2Key) {
+        await deleteR2Object(r2Key);
+        return NextResponse.json({
+          success: true,
+          message: "File eliminato con successo da Cloudflare R2",
+          deletedPath: reqPath || r2Key,
+        });
+      }
+    }
+
+    // 2. Local disk file deletion fallback
     if (!reqPath || typeof reqPath !== "string") {
       return NextResponse.json({ error: "Percorso non valido" }, { status: 400 });
     }

@@ -5,10 +5,20 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "192.168.31.235",
     "192.168.31.*",
-    "192.168.*",
-    "*.local",
     "Mac-mini-di-Matteo.local",
   ],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+      {
+        protocol: "http",
+        hostname: "**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

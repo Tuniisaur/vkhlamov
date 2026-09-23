@@ -13,8 +13,10 @@ import {
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill } from "@/data/translations";
 
+type MediaItem = { name: string; path: string; size: string; key?: string };
+
 // Server media list for quick selection fallback
-const AVAILABLE_VIDEOS = [
+const AVAILABLE_VIDEOS: MediaItem[] = [
   { name: "sfondo portfolio (hero)", path: "/videos/sfondo%20portfolio.mov", size: "49.3 MB" },
   { name: "formula apex", path: "/videos/formula.webm", size: "4.0 MB" },
   { name: "hypercar pursuit", path: "/videos/hypercar.webm", size: "80.4 MB" },
@@ -23,10 +25,10 @@ const AVAILABLE_VIDEOS = [
   { name: "hero showreel 1080p", path: "/videos/hero-showreel-1080p.webm", size: "60.4 MB" },
 ];
 
-const AVAILABLE_IMAGES = [
+const AVAILABLE_IMAGES: MediaItem[] = [
   { name: "gt night race (monza)", path: "/images/gt-night-race.jpg", size: "814 KB" },
   { name: "fpv pursuit chase", path: "/images/fpv-chase.jpg", size: "781 KB" },
-  { name: "rally wrc sardegna", path: "/images/rally-wrc.jpg", size: "1.0 MB" },
+  { name: "rally wrc storage", path: "/images/rally-wrc.jpg", size: "1.0 MB" },
   { name: "commercial monolith", path: "/images/commercial-hypercar.jpg", size: "848 KB" },
   { name: "filmmaker paddock lab", path: "/images/filmmaker-paddock.jpg", size: "766 KB" },
 ];
@@ -68,8 +70,8 @@ export default function ManagePage() {
 
   // Dynamic media files list from server (/public/videos and /public/images)
   const [mediaFiles, setMediaFiles] = useState<{
-    videos: { name: string; path: string; size: string }[];
-    images: { name: string; path: string; size: string }[];
+    videos: { name: string; path: string; size: string; key?: string }[];
+    images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
   const [isUploading, setIsUploading] = useState<string | null>(null);
 
@@ -93,6 +95,42 @@ export default function ManagePage() {
     file: File,
     category?: "video" | "image"
   ): Promise<string | null> => {
+    // 1. Direct upload to Cloudflare R2 via Presigned S3 URL (bypasses server payload limits)
+    try {
+      const presignedRes = await fetch("/api/media/presigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          folder: category === "video" ? "videos" : (category === "image" ? "images" : undefined),
+        }),
+      });
+
+      if (presignedRes.ok) {
+        const presignedData = await presignedRes.json();
+        if (presignedData.r2 && presignedData.uploadUrl) {
+          const uploadRes = await fetch(presignedData.uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type || "application/octet-stream",
+            },
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error(`Upload diretto su Cloudflare R2 non riuscito (HTTP ${uploadRes.status})`);
+          }
+
+          await fetchMedia();
+          return presignedData.publicUrl;
+        }
+      }
+    } catch (presignedErr: unknown) {
+      console.warn("Upload diretto R2 non riuscito o fallback locale:", presignedErr);
+    }
+
+    // 2. Standard Server Fallback
     const fd = new FormData();
     fd.append("file", file);
     if (category) fd.append("type", category);
@@ -109,16 +147,16 @@ export default function ManagePage() {
     return data.path;
   };
 
-  const handleDeleteMedia = async (filePath: string) => {
+  const handleDeleteMedia = async (filePath: string, key?: string) => {
     const name = decodeURIComponent(filePath).split("/").pop();
-    if (!confirm(`Eliminare definitivamente "${name}" dal server?`)) {
+    if (!confirm(`Eliminare definitivamente "${name}"?`)) {
       return;
     }
     try {
       const res = await fetch("/api/media", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: filePath }),
+        body: JSON.stringify({ path: filePath, key }),
       });
       if (res.ok) {
         await fetchMedia();
@@ -1690,7 +1728,7 @@ export default function ManagePage() {
                           {copiedPath === vid.path ? "[ copiato ]" : "[ copia ]"}
                         </button>
                         <button
-                          onClick={() => handleDeleteMedia(vid.path)}
+                          onClick={() => handleDeleteMedia(vid.path, vid.key)}
                           className="text-[11px] text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
                         >
                           [ elimina ]
@@ -1715,6 +1753,7 @@ export default function ManagePage() {
                         src={img.path}
                         alt={img.name}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                     </div>
@@ -1729,7 +1768,7 @@ export default function ManagePage() {
                           {copiedPath === img.path ? "[ copiato ]" : "[ copia ]"}
                         </button>
                         <button
-                          onClick={() => handleDeleteMedia(img.path)}
+                          onClick={() => handleDeleteMedia(img.path, img.key)}
                           className="text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
                         >
                           [ elimina ]
