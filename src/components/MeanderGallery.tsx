@@ -68,15 +68,34 @@ function StoryCard({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const playAttemptRef = useRef<boolean>(false);
 
   const handleMouseEnter = () => {
+    const video = videoRef.current;
+    if (!video) return;
     setIsPlaying(true);
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
+    playAttemptRef.current = true;
+
+    // If already has enough data, play immediately
+    if (video.readyState >= 3) {
+      video.play().catch(() => {});
+      return;
     }
+
+    // Otherwise load first then play when ready
+    video.preload = "auto";
+    video.load();
+
+    const tryPlay = () => {
+      if (!playAttemptRef.current) return;
+      video.play().catch(() => {});
+    };
+
+    video.addEventListener("canplay", tryPlay, { once: true });
   };
 
   const handleMouseLeave = () => {
+    playAttemptRef.current = false;
     setIsPlaying(false);
     setProgress(0);
     if (videoRef.current) {
@@ -126,7 +145,7 @@ function StoryCard({
           muted={isAudioMuted}
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           onTimeUpdate={handleTimeUpdate}
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none"
         />
