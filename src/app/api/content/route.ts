@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { LOCALIZED_PROJECTS, LocalizedProject } from "@/data/translations";
 import { isRequestAuthenticated } from "@/utils/serverAuth";
-import { isR2Configured, getR2Content, putR2Content } from "@/utils/r2";
+import { isR2Configured, getR2Content, putR2Content, getR2Status } from "@/utils/r2";
 
 export interface SocialChannel {
   id: string;
@@ -90,13 +90,15 @@ const DEFAULT_SETTINGS: SiteSettings = {
 const DATA_FILE_PATH = path.join(process.cwd(), "src", "data", "site-content.json");
 
 export async function GET() {
+  const r2Status = getR2Status();
+
   try {
     // 1. If Cloudflare R2 is configured, load content from R2
     if (isR2Configured()) {
       try {
         const r2Data = await getR2Content<SiteDataPayload>("site-content.json");
         if (r2Data && Array.isArray(r2Data.projects)) {
-          return NextResponse.json(r2Data);
+          return NextResponse.json({ ...r2Data, r2Status });
         }
       } catch (r2Err) {
         console.warn("Could not read site-content from R2, falling back to local:", r2Err);
@@ -112,7 +114,7 @@ export async function GET() {
     if (fileExists) {
       const raw = await fs.readFile(DATA_FILE_PATH, "utf-8");
       const parsed = JSON.parse(raw);
-      return NextResponse.json(parsed);
+      return NextResponse.json({ ...parsed, r2Status });
     }
 
     // Fallback: return default data
@@ -122,7 +124,7 @@ export async function GET() {
       lastUpdated: new Date().toISOString(),
     };
 
-    return NextResponse.json(initialData);
+    return NextResponse.json({ ...initialData, r2Status });
   } catch (err: unknown) {
     console.error("Error reading site content:", err);
     return NextResponse.json(
@@ -130,6 +132,7 @@ export async function GET() {
         projects: LOCALIZED_PROJECTS,
         settings: DEFAULT_SETTINGS,
         lastUpdated: new Date().toISOString(),
+        r2Status,
       },
       { status: 200 }
     );
@@ -167,6 +170,7 @@ export async function POST(req: Request) {
 
     let savedToR2 = false;
     let savedToDisk = false;
+    let r2ErrorMsg: string | null = null;
 
     // 1. If Cloudflare R2 is configured, persist directly to R2 bucket (works on Vercel without filesystem limits)
     if (isR2Configured()) {
@@ -175,6 +179,7 @@ export async function POST(req: Request) {
         savedToR2 = true;
       } catch (r2Err) {
         console.error("Cloudflare R2 put error:", r2Err);
+        r2ErrorMsg = r2Err instanceof Error ? r2Err.message : String(r2Err);
       }
     }
 
@@ -188,10 +193,16 @@ export async function POST(req: Request) {
     }
 
     if (!savedToR2 && !savedToDisk) {
+      const missingVars = getR2Status().missing;
+      const details = r2ErrorMsg
+        ? `Errore Cloudflare R2: ${r2ErrorMsg}`
+        : missingVars.length > 0
+        ? `Cloudflare R2 non configurato su Vercel (mancano: ${missingVars.join(", ")})`
+        : "Impossibile scrivere sia su R2 che su disco.";
+
       return NextResponse.json(
         {
-          error:
-            "Impossibile salvare i contenuti: il filesystem è in sola lettura e Cloudflare R2 non è ancora configurato su Vercel. Inserisci le variabili d'ambiente R2 nelle impostazioni del progetto per abilitare il salvataggio.",
+          error: `Salvataggio non riuscito: ${details}`,
         },
         { status: 500 }
       );

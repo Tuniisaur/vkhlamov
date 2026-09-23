@@ -9,19 +9,46 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import path from "path";
 import crypto from "crypto";
 
+function cleanEnv(val?: string): string {
+  if (!val) return "";
+  return val.trim().replace(/^["']|["']$/g, "");
+}
+
+export function getR2AccountId(): string {
+  let id = cleanEnv(process.env.R2_ACCOUNT_ID);
+  if (id.includes("r2.cloudflarestorage.com")) {
+    id = id.replace(/https?:\/\//, "").replace(/\.r2\.cloudflarestorage\.com.*$/, "");
+  }
+  return id;
+}
+
+export function getR2BucketName(): string {
+  return cleanEnv(process.env.R2_BUCKET_NAME);
+}
+
+export function getR2Status(): {
+  configured: boolean;
+  missing: string[];
+} {
+  const missing: string[] = [];
+  if (!getR2AccountId()) missing.push("R2_ACCOUNT_ID");
+  if (!cleanEnv(process.env.R2_ACCESS_KEY_ID)) missing.push("R2_ACCESS_KEY_ID");
+  if (!cleanEnv(process.env.R2_SECRET_ACCESS_KEY)) missing.push("R2_SECRET_ACCESS_KEY");
+  if (!getR2BucketName()) missing.push("R2_BUCKET_NAME");
+  return {
+    configured: missing.length === 0,
+    missing,
+  };
+}
+
 export function isR2Configured(): boolean {
-  return Boolean(
-    process.env.R2_ACCOUNT_ID &&
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_BUCKET_NAME
-  );
+  return getR2Status().configured;
 }
 
 export function getR2Client(): S3Client {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const accountId = getR2AccountId();
+  const accessKeyId = cleanEnv(process.env.R2_ACCESS_KEY_ID);
+  const secretAccessKey = cleanEnv(process.env.R2_SECRET_ACCESS_KEY);
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
     throw new Error("Credenziali Cloudflare R2 non configurate");
@@ -38,7 +65,7 @@ export function getR2Client(): S3Client {
 }
 
 export function getR2PublicBase(): string {
-  const base = process.env.R2_PUBLIC_URL || "";
+  const base = cleanEnv(process.env.R2_PUBLIC_URL);
   return base.replace(/\/+$/, "");
 }
 
@@ -150,7 +177,7 @@ export async function getR2Content<T>(key: string): Promise<T | null> {
   if (!isR2Configured()) return null;
   try {
     const s3 = getR2Client();
-    const bucket = process.env.R2_BUCKET_NAME!;
+    const bucket = getR2BucketName();
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -169,7 +196,7 @@ export async function putR2Content(key: string, data: unknown): Promise<void> {
     throw new Error("Cloudflare R2 non configurato");
   }
   const s3 = getR2Client();
-  const bucket = process.env.R2_BUCKET_NAME!;
+  const bucket = getR2BucketName();
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: key,

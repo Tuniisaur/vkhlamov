@@ -82,19 +82,24 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 const LOCAL_STORAGE_KEY = "valerio_studio_site_data_v2";
 const LEGACY_STORAGE_KEY = "valerio_studio_site_data_v1";
 
+export interface SaveResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface SiteDataContextType {
   projects: LocalizedProject[];
   settings: SiteSettings;
   isLoading: boolean;
   isSaving: boolean;
   saveStatus: "idle" | "saving" | "saved" | "error";
-  saveAll: (projects: LocalizedProject[], settings: SiteSettings) => Promise<boolean>;
-  updateProject: (project: LocalizedProject) => Promise<boolean>;
-  addProject: (project: LocalizedProject) => Promise<boolean>;
-  deleteProject: (id: string) => Promise<boolean>;
-  reorderProjects: (fromIndex: number, toIndex: number) => Promise<boolean>;
-  updateSettings: (newSettings: Partial<SiteSettings>) => Promise<boolean>;
-  resetToDefaults: () => Promise<boolean>;
+  saveAll: (projects: LocalizedProject[], settings: SiteSettings) => Promise<SaveResult>;
+  updateProject: (project: LocalizedProject) => Promise<SaveResult>;
+  addProject: (project: LocalizedProject) => Promise<SaveResult>;
+  deleteProject: (id: string) => Promise<SaveResult>;
+  reorderProjects: (fromIndex: number, toIndex: number) => Promise<SaveResult>;
+  updateSettings: (newSettings: Partial<SiteSettings>) => Promise<SaveResult>;
+  resetToDefaults: () => Promise<SaveResult>;
   refreshData: () => Promise<void>;
 }
 
@@ -203,7 +208,7 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
   const saveAll = async (
     newProjects: LocalizedProject[],
     newSettings: SiteSettings
-  ): Promise<boolean> => {
+  ): Promise<SaveResult> => {
     setIsSaving(true);
     setSaveStatus("saving");
 
@@ -237,40 +242,41 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
 
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
-      return true;
-    } catch (err) {
-      console.error("Failed to save changes:", err);
+      return { ok: true };
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Errore durante il salvataggio";
+      console.error("Failed to save changes:", errMsg);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 4000);
-      return false;
+      return { ok: false, error: errMsg };
     } finally {
       setIsSaving(false);
     }
   };
 
-  const updateProject = async (project: LocalizedProject): Promise<boolean> => {
+  const updateProject = async (project: LocalizedProject): Promise<SaveResult> => {
     const updated = projects.map((p) => (p.id === project.id ? project : p));
     return saveAll(updated, settings);
   };
 
-  const addProject = async (project: LocalizedProject): Promise<boolean> => {
+  const addProject = async (project: LocalizedProject): Promise<SaveResult> => {
     const updated = [project, ...projects];
     return saveAll(updated, settings);
   };
 
-  const deleteProject = async (id: string): Promise<boolean> => {
+  const deleteProject = async (id: string): Promise<SaveResult> => {
     const updated = projects.filter((p) => p.id !== id);
     return saveAll(updated, settings);
   };
 
-  const reorderProjects = async (fromIndex: number, toIndex: number): Promise<boolean> => {
+  const reorderProjects = async (fromIndex: number, toIndex: number): Promise<SaveResult> => {
     if (
       fromIndex < 0 ||
       fromIndex >= projects.length ||
       toIndex < 0 ||
       toIndex >= projects.length
     ) {
-      return false;
+      return { ok: false, error: "Indice non valido" };
     }
     const updated = [...projects];
     const [moved] = updated.splice(fromIndex, 1);
@@ -278,12 +284,12 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
     return saveAll(updated, settings);
   };
 
-  const updateSettings = async (newSettings: Partial<SiteSettings>): Promise<boolean> => {
+  const updateSettings = async (newSettings: Partial<SiteSettings>): Promise<SaveResult> => {
     const merged = { ...settings, ...newSettings };
     return saveAll(projects, merged);
   };
 
-  const resetToDefaults = async (): Promise<boolean> => {
+  const resetToDefaults = async (): Promise<SaveResult> => {
     const defaultData = {
       projects: LOCALIZED_PROJECTS,
       settings: DEFAULT_SETTINGS,

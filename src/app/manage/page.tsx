@@ -55,6 +55,7 @@ export default function ManagePage() {
     images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [r2Info, setR2Info] = useState<{ configured: boolean; missing: string[] } | null>(null);
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -80,6 +81,17 @@ export default function ManagePage() {
       } catch (err) {
         console.warn("Could not fetch media list:", err);
       }
+
+      // Check R2 status from content endpoint
+      try {
+        const contentRes = await fetch("/api/content");
+        if (contentRes.ok && !ignore) {
+          const contentData = await contentRes.json();
+          if (contentData.r2Status) {
+            setR2Info(contentData.r2Status);
+          }
+        }
+      } catch {}
     };
     load();
     return () => {
@@ -461,19 +473,14 @@ export default function ManagePage() {
       }
     }
 
-    let success = false;
-    if (isCreatingNew) {
-      success = await addProject(projectToSave);
-    } else {
-      success = await updateProject(projectToSave);
-    }
+    const res = isCreatingNew
+      ? await addProject(projectToSave)
+      : await updateProject(projectToSave);
 
-    if (success) {
+    if (res.ok) {
       setEditingProject(null);
     } else {
-      alert(
-        "Errore durante il salvataggio del progetto. Verifica che Cloudflare R2 sia configurato su Vercel con le variabili d'ambiente corrette per abilitare la persistenza."
-      );
+      alert(`Impossibile salvare il progetto:\n${res.error || "Errore sconosciuto"}`);
     }
   };
 
@@ -496,8 +503,12 @@ export default function ManagePage() {
         })
       );
       if (updatedCount > 0) {
-        await saveAll(updated, settings);
-        alert(`Durata calcolata e aggiornata con successo per ${updatedCount} progetti.`);
+        const res = await saveAll(updated, settings);
+        if (res.ok) {
+          alert(`Durata calcolata e aggiornata con successo per ${updatedCount} progetti.`);
+        } else {
+          alert(`Impossibile aggiornare le durate:\n${res.error || "Errore sconosciuto"}`);
+        }
       } else {
         alert("Tutte le durate dei progetti sono già aggiornate.");
       }
@@ -785,6 +796,29 @@ export default function ManagePage() {
           <span className="text-white/30 text-[10px] sm:text-[11px]">
             {saveStatus === "saving" ? "[ salvataggio... ]" : "[ online & synced ]"}
           </span>
+          {r2Info && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!r2Info.configured) {
+                  alert(
+                    `Stato Cloudflare R2: NON CONFIGURATO\n\nVariabili d'ambiente mancanti su Vercel:\n• ${r2Info.missing.join(
+                      "\n• "
+                    )}\n\nCome risolvere:\n1. Vai su Vercel -> Project Settings -> Environment Variables\n2. Inserisci le variabili mancanti\n3. Esegui un Redeploy del progetto.`
+                  );
+                } else {
+                  alert("Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\nTutti i contenuti e file vengono salvati sul bucket Cloudflare.");
+                }
+              }}
+              className={`cursor-pointer transition-colors text-[10px] sm:text-[11px] ${
+                r2Info.configured
+                  ? "text-emerald-400/90 hover:text-emerald-300 hover:italic"
+                  : "text-amber-400/90 hover:text-amber-300 hover:italic"
+              }`}
+            >
+              {r2Info.configured ? "[ R2: connesso ✓ ]" : "[ R2: mancante ⚠ ]"}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-4 sm:gap-6">
@@ -999,10 +1033,10 @@ export default function ManagePage() {
                       onClick={async () => {
                         const title = proj.title.en || proj.title.it;
                         if (confirm(`Eliminare definitivamente il progetto "${title}"?`)) {
-                          const ok = await deleteProject(proj.id);
-                          if (!ok) {
+                          const res = await deleteProject(proj.id);
+                          if (!res.ok) {
                             alert(
-                              "Errore durante l'eliminazione del progetto. Verifica che le variabili d'ambiente Cloudflare R2 siano configurate su Vercel."
+                              `Impossibile eliminare il progetto:\n${res.error || "Errore sconosciuto"}`
                             );
                           }
                         }
