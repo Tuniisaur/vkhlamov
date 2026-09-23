@@ -1,0 +1,328 @@
+{
+  "projects": [
+    {
+      "id": "formula-apex-hunter",
+      "title": {
+        "en": "// LE MANS 2026",
+        "it": "// LE MANS 2026"
+      },
+      "subtitle": {
+        "en": "24 Hours of Le Mans 2026",
+        "it": "24 Hours of Le Mans 2026"
+      },
+      "category": "gt",
+      "categoryLabel": {
+        "en": "FORMULA & GT",
+        "it": "FORMULA & GT"
+      },
+      "year": "2026",
+      "client": "",
+      "location": "Circuit de La Sarthe. France",
+      "duration": "02:45",
+      "posterImage": "/images/still-2026-09-23-130212_1-2-1-5306.jpg",
+      "videoPreviewUrl": "/videos/portfolio-wec-8155.mov",
+      "fullVideoUrl": "/videos/portfolio-wec-8155.mov",
+      "telemetry": {
+        "speed": "312 KM/H",
+        "gForce": "4.2 G",
+        "track": "VARIANTE ASCARI & PRIMA VARIANTE",
+        "timecode": "00:02:45:18"
+      },
+      "description": {
+        "en": "A visceral cinematic plunge into Monza's legendary curbs and chicanes, capturing suspension dynamics over curbs and glowing carbon-ceramic brakes during threshold deceleration.",
+        "it": ""
+      },
+      "featured": true,
+      "stills": [
+        {
+          "url": "/images/still-2026-09-23-130212_1-2-1-3329.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-3-1-3441.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-5-1-3981.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-6-1-4175.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-7-1-4382.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-9-1-4528.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-10-1-4635.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-10-2-4718.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-11-1-4888.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-22-1-4971.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-22-2-5036.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-23-1-5133.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-24-1-5352.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-25-1-5520.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-26-1-5598.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-27-1-5721.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-30-1-5862.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-35-1-6095.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-36-1-6180.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-37-1-6233.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-47-1-6301.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-48-1-6396.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-50-1-6513.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-51-1-6584.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-52-1-6658.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-54-1-6720.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-56-1-6797.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-57-1-6939.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-59-1-7003.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-60-1-7072.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-63-1-7169.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-68-1-7233.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-70-1-7360.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-72-1-7447.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-74-1-7507.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        },
+        {
+          "url": "/images/still-2026-09-23-130212_1-77-1-7601.jpg",
+          "caption": {
+            "it": "",
+            "en": ""
+          }
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "heroVideo": "/videos/sfondo-portfolio-2-mov-0306.mov",
+    "contactEmail": "valerio@vkhlamov.com",
+    "contactPhone": "+39 348 000 0000",
+    "representation": "Italy // Worldwide Available",
+    "channels": [
+      {
+        "id": "instagram",
+        "name": "Instagram",
+        "url": "https://instagram.com/vkhlamov"
+      }
+    ],
+    "footerLinks": [
+      {
+        "id": "instagram",
+        "label": "Instagram ↗",
+        "url": "https://instagram.com/vkhlamov"
+      }
+    ],
+    "instagramUrl": "https://instagram.com/vkhlamov",
+    "vimeoUrl": "https://vimeo.com",
+    "about": {
+      "badge": "// PROFILE & DIRECTION",
+      "title": "Valerio Khlamov is a Director of Photography and High-Speed Pursuit Cinematographer based in Milan.",
+      "bio": "Specialized in high-speed pursuit cinematography and visceral automotive storytelling. Directing commercial campaigns and trackside cinema for Formula, GT, WEC, and premier automotive manufacturers worldwide.",
+      "secondaryBio": "",
+      "disciplinesTitle": "DISCIPLINES & FOCUS",
+      "disciplines": "Automotive Commercials • Trackside Racing Cinema • High-Speed Pursuit Direction",
+      "accreditationsTitle": "ACCREDITATIONS",
+      "accreditations": "FIA Formula & WEC Trackside Paddock Access • Hot Pit Lane Certified",
+      "baseTitle": "BASE & DEPLOYMENT",
+      "base": "Milan, Italy • Available Worldwide for Commercial & Trackside Projects",
+      "customBlocks": []
+    }
+  },
+  "lastUpdated": "2026-09-23T18:41:18.111Z"
+}
