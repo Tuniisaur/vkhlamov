@@ -226,14 +226,18 @@ export async function DELETE(req: Request) {
     if (isR2Configured()) {
       let r2Key = reqKey;
       if (!r2Key && reqPath) {
-        const publicBase = getR2PublicBase();
-        if (publicBase && reqPath.startsWith(publicBase)) {
-          r2Key = reqPath.slice(publicBase.length).replace(/^\/+/, "");
-        } else if (reqPath.startsWith("http://") || reqPath.startsWith("https://")) {
-          try {
-            const urlObj = new URL(reqPath);
-            r2Key = urlObj.pathname.replace(/^\/+/, "");
-          } catch {}
+        if (reqPath.startsWith("/api/media/stream/")) {
+          r2Key = reqPath.replace(/^\/api\/media\/stream\//, "");
+        } else {
+          const publicBase = getR2PublicBase();
+          if (publicBase && reqPath.startsWith(publicBase)) {
+            r2Key = reqPath.slice(publicBase.length).replace(/^\/+/, "");
+          } else if (reqPath.startsWith("http://") || reqPath.startsWith("https://")) {
+            try {
+              const urlObj = new URL(reqPath);
+              r2Key = urlObj.pathname.replace(/^\/+/, "");
+            } catch {}
+          }
         }
       }
 

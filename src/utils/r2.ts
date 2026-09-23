@@ -65,8 +65,22 @@ export function getR2Client(): S3Client {
 }
 
 export function getR2PublicBase(): string {
-  const base = cleanEnv(process.env.R2_PUBLIC_URL);
+  let base = cleanEnv(process.env.R2_PUBLIC_URL);
+  if (!base) return "";
+  if (!base.startsWith("http://") && !base.startsWith("https://")) {
+    base = `https://${base}`;
+  }
   return base.replace(/\/+$/, "");
+}
+
+export function getR2ItemUrl(key: string): string {
+  const cleanKey = key.replace(/^\/+/, "");
+  const publicBase = getR2PublicBase();
+  if (publicBase) {
+    return `${publicBase}/${cleanKey}`;
+  }
+  // Automatic streaming proxy fallback if R2_PUBLIC_URL is not configured
+  return `/api/media/stream/${cleanKey}`;
 }
 
 export async function createR2PresignedUpload(params: {
@@ -100,8 +114,7 @@ export async function createR2PresignedUpload(params: {
 
   // URL valid for 60 minutes
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
-  const publicBase = getR2PublicBase();
-  const publicUrl = publicBase ? `${publicBase}/${uniqueKey}` : uniqueKey;
+  const publicUrl = getR2ItemUrl(uniqueKey);
 
   return {
     uploadUrl,
@@ -115,8 +128,7 @@ export async function listR2Objects(): Promise<{
   images: { name: string; path: string; size: string; key: string }[];
 }> {
   const s3 = getR2Client();
-  const bucket = process.env.R2_BUCKET_NAME!;
-  const publicBase = getR2PublicBase();
+  const bucket = getR2BucketName();
 
   const command = new ListObjectsV2Command({
     Bucket: bucket,
@@ -141,7 +153,7 @@ export async function listR2Objects(): Promise<{
     const key = item.Key;
     const name = key.split("/").pop() || key;
     const ext = path.extname(key).toLowerCase();
-    const itemUrl = publicBase ? `${publicBase}/${key}` : `/${key}`;
+    const itemUrl = getR2ItemUrl(key);
 
     const isVideo = [".mp4", ".mov", ".webm", ".avi", ".mkv"].includes(ext) || key.startsWith("videos/");
     const entry = {
@@ -163,7 +175,7 @@ export async function listR2Objects(): Promise<{
 
 export async function deleteR2Object(key: string): Promise<void> {
   const s3 = getR2Client();
-  const bucket = process.env.R2_BUCKET_NAME!;
+  const bucket = getR2BucketName();
 
   const command = new DeleteObjectCommand({
     Bucket: bucket,
