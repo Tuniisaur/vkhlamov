@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LocalizedProject } from "@/data/translations";
@@ -64,11 +64,34 @@ function StoryCard({
   onSelect?: (project: LocalizedProject) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLAnchorElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const playAttemptRef = useRef<boolean>(false);
+
+  // Pre-buffer the video when the card enters the viewport so hover plays instantly
+  useEffect(() => {
+    const video = videoRef.current;
+    const card = cardRef.current;
+    if (!video || !card) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          video.preload = "auto";
+          video.load();
+          observer.disconnect(); // Only need to trigger once
+        }
+      },
+      { rootMargin: "200px" } // Start loading 200px before card enters viewport
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
 
   const handleMouseEnter = () => {
     const video = videoRef.current;
@@ -76,21 +99,17 @@ function StoryCard({
     setIsPlaying(true);
     playAttemptRef.current = true;
 
-    // If already has enough data, play immediately
+    // If buffer is ready (HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA), play instantly
     if (video.readyState >= 3) {
       video.play().catch(() => {});
       return;
     }
 
-    // Otherwise load first then play when ready
-    video.preload = "auto";
-    video.load();
-
+    // Still loading — play as soon as there's enough data
     const tryPlay = () => {
       if (!playAttemptRef.current) return;
       video.play().catch(() => {});
     };
-
     video.addEventListener("canplay", tryPlay, { once: true });
   };
 
@@ -123,6 +142,7 @@ function StoryCard({
 
   return (
     <Link
+      ref={cardRef}
       href={`/project/${item.project.id}`}
       scroll={true}
       onMouseEnter={handleMouseEnter}
