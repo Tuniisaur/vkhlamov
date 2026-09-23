@@ -13,6 +13,7 @@ import {
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill } from "@/data/translations";
 import { detectVideoDuration } from "@/utils/videoDuration";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 export default function ManagePage() {
   const {
@@ -972,9 +973,10 @@ export default function ManagePage() {
                   <div className="md:col-span-3">
                     <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60">
                       <Image
-                        src={proj.posterImage || proj.stills?.[0]?.url || "/images/gt-night-race.jpg"}
+                        src={resolveMediaUrl(proj.posterImage || proj.stills?.[0]?.url || "/images/gt-night-race.jpg")}
                         alt={proj.title.en || proj.title.it}
                         fill
+                        unoptimized
                         className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                       />
                       <span className="absolute bottom-1 right-2 font-mono text-[10px] text-white/60">
@@ -2276,10 +2278,7 @@ export default function ManagePage() {
                       }
                     }}
                     onChange={(e) =>
-                      setEditingProject({
-                        ...editingProject,
-                        videoPreviewUrl: e.target.value,
-                      })
+                      setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: e.target.value } : null))
                     }
                     className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                   />
@@ -2325,15 +2324,55 @@ export default function ManagePage() {
                       }
                     }}
                     onChange={(e) =>
-                      setEditingProject({
-                        ...editingProject,
-                        fullVideoUrl: e.target.value,
-                      })
+                      setEditingProject((prev) => (prev ? { ...prev, fullVideoUrl: e.target.value } : null))
                     }
                     className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                   />
                 </div>
               </div>
+
+              {/* Video Library Quick Picker & Preview Player */}
+              {activeVideos.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-white/40">
+                  <span className="text-white/60">scegli dai video in libreria:</span>
+                  {activeVideos.map((vid) => (
+                    <button
+                      key={vid.path}
+                      type="button"
+                      onClick={async () => {
+                        const dur = await detectVideoDuration(vid.path);
+                        setEditingProject((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                fullVideoUrl: vid.path,
+                                videoPreviewUrl: prev.videoPreviewUrl || vid.path,
+                                duration: dur || prev.duration,
+                              }
+                            : null
+                        );
+                      }}
+                      className="text-white/70 hover:text-white hover:underline transition-colors truncate max-w-[180px] cursor-pointer"
+                    >
+                      [ {vid.name} ]
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {(editingProject.fullVideoUrl || editingProject.videoPreviewUrl) && (
+                <div className="space-y-1 pt-2">
+                  <div className="text-[11px] font-mono text-white/40">anteprima video:</div>
+                  <div className="relative aspect-video w-full max-w-md rounded-lg overflow-hidden bg-black/60 border border-white/10">
+                    <video
+                      src={resolveMediaUrl(editingProject.fullVideoUrl || editingProject.videoPreviewUrl)}
+                      controls
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -2350,7 +2389,7 @@ export default function ManagePage() {
                           setIsUploading("proj-poster");
                           try {
                             const path = await handleUploadFile(f, "image");
-                            if (path) setEditingProject({ ...editingProject, posterImage: path });
+                            if (path) setEditingProject((prev) => (prev ? { ...prev, posterImage: path } : null));
                           } catch (err) {
                             alert(err instanceof Error ? err.message : "Errore");
                           } finally {
@@ -2366,13 +2405,45 @@ export default function ManagePage() {
                   type="text"
                   value={editingProject.posterImage}
                   onChange={(e) =>
-                    setEditingProject({
-                      ...editingProject,
-                      posterImage: e.target.value,
-                    })
+                    setEditingProject((prev) => (prev ? { ...prev, posterImage: e.target.value } : null))
                   }
                   className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                 />
+
+                {/* Cover Library Quick Picker */}
+                {activeImages.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-white/40">
+                    <span className="text-white/60">scegli cover dalla libreria:</span>
+                    {activeImages.slice(0, 10).map((img) => (
+                      <button
+                        key={img.path}
+                        type="button"
+                        onClick={() =>
+                          setEditingProject((prev) => (prev ? { ...prev, posterImage: img.path } : null))
+                        }
+                        className="text-white/70 hover:text-white hover:underline transition-colors truncate max-w-[150px] cursor-pointer"
+                      >
+                        [ {img.name} ]
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cover Visual Preview */}
+                {editingProject.posterImage && (
+                  <div className="space-y-1 pt-2">
+                    <div className="text-[11px] font-mono text-white/40">anteprima cover:</div>
+                    <div className="relative aspect-video w-48 rounded-lg overflow-hidden bg-black/60 border border-white/10">
+                      <Image
+                        src={resolveMediaUrl(editingProject.posterImage)}
+                        alt="Cover preview"
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2405,10 +2476,14 @@ export default function ManagePage() {
                               url,
                               caption: { it: "", en: "" },
                             }));
-                            setEditingProject({
-                              ...editingProject,
-                              stills: [...(editingProject.stills || []), ...newStills],
-                            });
+                            setEditingProject((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    stills: [...(prev.stills || []), ...newStills],
+                                  }
+                                : null
+                            );
                           }
                         } catch (err) {
                           alert(err instanceof Error ? err.message : "Errore caricamento");
@@ -2427,9 +2502,10 @@ export default function ManagePage() {
                 {editingProject.stills?.map((still, sIdx) => (
                   <div key={sIdx} className="group relative aspect-[16/10] rounded-xl overflow-hidden bg-black">
                     <Image
-                      src={still.url}
+                      src={resolveMediaUrl(still.url)}
                       alt=""
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                     <button

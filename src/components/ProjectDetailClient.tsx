@@ -10,6 +10,7 @@ import CustomCursor from "@/components/CustomCursor";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration } from "@/utils/videoDuration";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -449,7 +450,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           <div className="relative w-full aspect-video bg-black overflow-hidden rounded-lg group">
             <video
               ref={videoRef}
-              src={project.fullVideoUrl}
+              src={resolveMediaUrl(project.fullVideoUrl || project.videoPreviewUrl)}
               autoPlay
               muted={isMuted}
               loop
@@ -574,9 +575,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
               >
                 <Image
-                  src={still.url}
+                  src={resolveMediaUrl(still.url)}
                   alt=""
                   fill
+                  unoptimized
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
                 />
@@ -624,9 +626,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           <div className="relative w-full max-w-5xl max-h-[80vh] aspect-[16/10] mx-auto overflow-hidden">
             <Image
-              src={selectedStill}
+              src={resolveMediaUrl(selectedStill)}
               alt="Fullscreen film still"
               fill
+              unoptimized
               className="object-contain transition-transform duration-500 ease-out transform scale-100 hover:scale-[1.01]"
             />
           </div>

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { LocalizedProject } from "@/data/translations";
 import { useSiteData, DEFAULT_ABOUT } from "@/context/SiteDataContext";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import MeanderGallery from "@/components/MeanderGallery";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
@@ -241,7 +242,7 @@ export default function SoonHeroLayout({ onSelectProject }: SoonHeroLayoutProps)
         >
           <video
             ref={videoRef}
-            src={currentVideo}
+            src={resolveMediaUrl(currentVideo)}
             autoPlay
             muted
             loop

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sound } from "@/utils/audio";
 import { X, Volume2, VolumeX, Gauge, MapPin, Calendar, Clock } from "lucide-react";
 import { TRANSLATIONS, LocalizedProject } from "@/data/translations";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 interface ProjectModalProps {
   project: LocalizedProject | null;
@@ -98,8 +99,8 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
           <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
             <video
               ref={videoRef}
-              src={project.fullVideoUrl}
-              poster={project.posterImage}
+              src={resolveMediaUrl(project.fullVideoUrl || project.videoPreviewUrl)}
+              poster={resolveMediaUrl(project.posterImage)}
               controls
               autoPlay
               playsInline

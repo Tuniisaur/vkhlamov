@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LocalizedProject } from "@/data/translations";
 import { useSiteData } from "@/context/SiteDataContext";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 interface StoryItem {
   id: string;
@@ -120,8 +121,8 @@ function StoryCard({
 
         <video
           ref={videoRef}
-          src={item.video}
-          poster={item.poster}
+          src={resolveMediaUrl(item.video)}
+          poster={resolveMediaUrl(item.poster)}
           muted={isAudioMuted}
           loop
           playsInline
@@ -138,10 +139,12 @@ function StoryCard({
         >
           {item.poster && (
             <Image
-              src={item.poster}
+              src={resolveMediaUrl(item.poster)}
               alt={item.title}
               fill
+              unoptimized
               onLoad={() => setIsImageLoaded(true)}
+              onError={() => setIsImageLoaded(true)}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
             />
