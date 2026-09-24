@@ -6,12 +6,18 @@ export interface ProjectStill {
   aspectRatio?: string;
 }
 
+export interface ProjectVideo {
+  url: string;
+  title?: string;
+  duration?: string;
+}
+
 export interface LocalizedProject {
   id: string;
   title: { en: string; it: string };
   subtitle: { en: string; it: string };
-  category: "all" | "gt" | "rally" | "commercial" | "pursuit";
-  categoryLabel: { en: string; it: string };
+  category?: "all" | "gt" | "rally" | "commercial" | "pursuit" | string;
+  categoryLabel?: { en: string; it: string };
   year: string;
   client: string;
   location: string;
@@ -19,6 +25,7 @@ export interface LocalizedProject {
   posterImage: string;
   videoPreviewUrl: string;
   fullVideoUrl: string;
+  videos?: ProjectVideo[];
   gear?: {
     camera?: string;
     lens?: string;

@@ -11,9 +11,10 @@ import { Mail, ArrowUp } from "lucide-react";
 
 interface SoonHeroLayoutProps {
   onSelectProject: (project: LocalizedProject) => void;
+  onHeroReady?: () => void;
 }
 
-export default function SoonHeroLayout({ onSelectProject }: SoonHeroLayoutProps) {
+export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHeroLayoutProps) {
   const { settings } = useSiteData();
   const about = settings.about || DEFAULT_ABOUT;
   const [activeTab, setActiveTab] = useState<"projects" | "about" | "contact" | null>(null);
@@ -26,6 +27,13 @@ export default function SoonHeroLayout({ onSelectProject }: SoonHeroLayoutProps)
   const [footerOffset, setFooterOffset] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const footerRef = useRef<HTMLElement>(null);
+
+  // Notify when video is already cached/ready on mount
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      onHeroReady?.();
+    }
+  }, [currentVideo, onHeroReady]);
 
   // Parallax scroll listener & footer overlap detector
   useEffect(() => {
@@ -248,6 +256,8 @@ export default function SoonHeroLayout({ onSelectProject }: SoonHeroLayoutProps)
             loop
             playsInline
             preload="auto"
+            onLoadedData={() => onHeroReady?.()}
+            onCanPlay={() => onHeroReady?.()}
             className="w-full h-full object-cover"
           />
           {/* Subtle uniform film shading - gently darkens when about or contact info is displayed */}

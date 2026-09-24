@@ -31,11 +31,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "VALERIO KHLAMOV // MOTORSPORT & TRACK CINEMA",
+  title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
   description: "Official portfolio of Valerio Khlamov — Motorsport Director of Photography and Automotive Filmmaker. Based in Italy, available worldwide.",
   keywords: ["Valerio Khlamov", "Motorsport Filmmaker", "F1 Videographer", "Rally WRC Video", "Trackside Cinematography", "Automotive Films"],
   openGraph: {
-    title: "VALERIO KHLAMOV // MOTORSPORT & TRACK CINEMA",
+    title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
     description: "High-octane racing visuals, high-speed track pursuit and luxury automotive films by Valerio Khlamov.",
     images: ["/images/gt-night-race.jpg"],
   },

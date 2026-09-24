@@ -245,8 +245,8 @@ export default function MeanderGallery({
       index: String(idx + 1).padStart(2, "0"),
       title: p.title.en || p.title.it || "Cinema Project",
       subtitle: p.title.en || p.subtitle.en || p.title.it || p.subtitle.it,
-      video: p.videoPreviewUrl || "/videos/formula.webm",
-      poster: p.posterImage || p.stills?.[0]?.url || "/images/gt-night-race.jpg",
+      video: p.videoPreviewUrl || "",
+      poster: p.posterImage || p.stills?.[0]?.url || "",
       project: p,
     }));
   }, [projects]);

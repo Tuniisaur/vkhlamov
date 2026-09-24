@@ -11,9 +11,23 @@ import {
   AboutInfoBlock,
   DEFAULT_ABOUT,
 } from "@/context/SiteDataContext";
-import { LocalizedProject, ProjectStill } from "@/data/translations";
+import { LocalizedProject, ProjectStill, ProjectVideo } from "@/data/translations";
 import { detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+
+function AnimatedLoadingText({ label = "caricamento" }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center text-white/90">
+      <span>[ {label}</span>
+      <span className="inline-flex items-center ml-0.5 font-mono">
+        <span className="animate-dot-1">.</span>
+        <span className="animate-dot-2">.</span>
+        <span className="animate-dot-3">.</span>
+      </span>
+      <span>&nbsp;]</span>
+    </span>
+  );
+}
 
 export default function ManagePage() {
   const {
@@ -162,26 +176,30 @@ export default function ManagePage() {
     return data.path;
   };
 
-  const handleDeleteMedia = async (filePath: string, key?: string) => {
-    const name = decodeURIComponent(filePath).split("/").pop();
-    if (!confirm(`Eliminare definitivamente "${name}"?`)) {
-      return;
-    }
-    try {
-      const res = await fetch("/api/media", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: filePath, key }),
-      });
-      if (res.ok) {
-        await fetchMedia();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Errore durante l'eliminazione");
-      }
-    } catch {
-      alert("Errore di rete durante l'eliminazione");
-    }
+  const handleDeleteMedia = (filePath: string, key?: string) => {
+    const name = decodeURIComponent(filePath).split("/").pop() || "file";
+    setConfirmDialog({
+      title: "Elimina File Multimediale",
+      message: `Sei sicuro di voler eliminare definitivamente "${name}"? Il file verrà rimosso dal server/cloud.`,
+      confirmLabel: "[ elimina file ]",
+      onConfirm: async () => {
+        try {
+          const res = await fetch("/api/media", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: filePath, key }),
+          });
+          if (res.ok) {
+            await fetchMedia();
+          } else {
+            const data = await res.json();
+            alert(data.error || "Errore durante l'eliminazione");
+          }
+        } catch {
+          alert("Errore di rete durante l'eliminazione");
+        }
+      },
+    });
   };
 
   // Dynamic media files list (direct from Cloudflare R2 / server)
@@ -235,8 +253,20 @@ export default function ManagePage() {
   // Copied path notification
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
-  // New Still input in project editor
+  // New Still input in project editor & Stills reordering
   const [newStillUrl, setNewStillUrl] = useState("");
+  const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [draggedStillIndex, setDraggedStillIndex] = useState<number | null>(null);
+
+  // Confirmation Popup Modal State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Sync state when context settings load
   useEffect(() => {
@@ -303,6 +333,17 @@ export default function ManagePage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [lockoutSeconds]);
+
+  // Close confirmation modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && confirmDialog && !isConfirming) {
+        setConfirmDialog(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDialog, isConfirming]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -403,13 +444,33 @@ export default function ManagePage() {
 
   // Open Project Editor
   const handleOpenEdit = (project: LocalizedProject) => {
-    const cloned = JSON.parse(JSON.stringify(project));
+    setNewStillUrl("");
+    setNewVideoUrl("");
+    setNewVideoTitle("");
+    const cloned: LocalizedProject = JSON.parse(JSON.stringify(project));
+
+    // Normalize videos: if videos is missing or empty but fullVideoUrl exists, seed it
+    if (!cloned.videos || cloned.videos.length === 0) {
+      if (cloned.fullVideoUrl) {
+        cloned.videos = [
+          {
+            url: cloned.fullVideoUrl,
+            title: "Main Film",
+            duration: cloned.duration || "",
+          },
+        ];
+      } else {
+        cloned.videos = [];
+      }
+    }
+
     setEditingProject(cloned);
     setIsCreatingNew(false);
 
     // If duration is empty or missing, detect it automatically in background
-    if (!cloned.duration && (cloned.fullVideoUrl || cloned.videoPreviewUrl)) {
-      detectVideoDuration(cloned.fullVideoUrl || cloned.videoPreviewUrl).then((dur) => {
+    const targetDurUrl = cloned.videos?.[0]?.url || cloned.fullVideoUrl || cloned.videoPreviewUrl;
+    if (!cloned.duration && targetDurUrl) {
+      detectVideoDuration(targetDurUrl).then((dur) => {
         if (dur) {
           setEditingProject((prev) => (prev && prev.id === cloned.id ? { ...prev, duration: dur } : prev));
         }
@@ -418,50 +479,40 @@ export default function ManagePage() {
   };
 
   const handleOpenCreateNew = () => {
+    setNewStillUrl("");
+    setNewVideoUrl("");
+    setNewVideoTitle("");
     const newId = `project-${Date.now().toString().slice(-4)}`;
     const blankProject: LocalizedProject = {
       id: newId,
       title: {
-        en: "NEW CINEMA PROJECT",
-        it: "NEW CINEMA PROJECT",
+        en: "",
+        it: "",
       },
       subtitle: {
-        en: "High-speed trackside pursuit cinema",
-        it: "High-speed trackside pursuit cinema",
-      },
-      category: "gt",
-      categoryLabel: {
-        en: "FORMULA & GT",
-        it: "FORMULA & GT",
+        en: "",
+        it: "",
       },
       year: new Date().getFullYear().toString(),
-      client: "Brand Name / Team",
-      location: "Autodromo Nazionale Monza, Italy",
+      client: "",
+      location: "",
       duration: "",
-      posterImage: "/images/gt-night-race.jpg",
-      videoPreviewUrl: "/videos/formula.webm",
-      fullVideoUrl: "/videos/formula.webm",
+      posterImage: "",
+      videoPreviewUrl: "",
+      fullVideoUrl: "",
+      videos: [],
       telemetry: {
-        speed: "310 KM/H",
-        gForce: "4.0 G",
-        track: "CIRCUITO MONZA",
-        timecode: "00:02:30:00",
+        speed: "",
+        gForce: "",
+        track: "",
+        timecode: "",
       },
       description: {
-        en: "Film description...",
-        it: "Film description...",
+        en: "",
+        it: "",
       },
       featured: true,
-      stills: [
-        {
-          url: "/images/gt-night-race.jpg",
-          caption: { it: "", en: "" },
-        },
-        {
-          url: "/images/filmmaker-paddock.jpg",
-          caption: { it: "", en: "" },
-        },
-      ],
+      stills: [],
     };
     setEditingProject(blankProject);
     setIsCreatingNew(true);
@@ -472,9 +523,27 @@ export default function ManagePage() {
     if (!editingProject) return;
 
     const projectToSave = { ...editingProject };
-    // If duration is not set, calculate automatically from video before saving
-    if (!projectToSave.duration && (projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl)) {
-      const autoDur = await detectVideoDuration(projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl);
+
+    // Synchronize videos and fullVideoUrl
+    if (projectToSave.videos && projectToSave.videos.length > 0) {
+      if (!projectToSave.fullVideoUrl || !projectToSave.videos.some((v) => v.url === projectToSave.fullVideoUrl)) {
+        projectToSave.fullVideoUrl = projectToSave.videos[0].url;
+      }
+    } else if (projectToSave.fullVideoUrl) {
+      projectToSave.videos = [
+        {
+          url: projectToSave.fullVideoUrl,
+          title: "Main Film",
+          duration: projectToSave.duration || "",
+        },
+      ];
+    }
+
+    // If duration is not set, calculate automatically from primary video before saving
+    const primaryVideoUrl =
+      projectToSave.videos?.[0]?.url || projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl;
+    if (!projectToSave.duration && primaryVideoUrl) {
+      const autoDur = await detectVideoDuration(primaryVideoUrl);
       if (autoDur) {
         projectToSave.duration = autoDur;
       }
@@ -499,7 +568,7 @@ export default function ManagePage() {
     try {
       const updated = await Promise.all(
         projects.map(async (p) => {
-          const videoUrl = p.fullVideoUrl || p.videoPreviewUrl;
+          const videoUrl = p.videos?.[0]?.url || p.fullVideoUrl || p.videoPreviewUrl;
           if (!videoUrl) return p;
           const dur = await detectVideoDuration(videoUrl);
           if (dur && dur !== p.duration) {
@@ -552,6 +621,101 @@ export default function ManagePage() {
     setEditingProject({
       ...editingProject,
       stills: updated,
+    });
+  };
+
+  // Reorder Stills
+  const handleMoveStill = (fromIndex: number, toIndex: number) => {
+    if (!editingProject || !editingProject.stills) return;
+    const stills = [...editingProject.stills];
+    if (toIndex < 0 || toIndex >= stills.length) return;
+    const [moved] = stills.splice(fromIndex, 1);
+    stills.splice(toIndex, 0, moved);
+    setEditingProject({
+      ...editingProject,
+      stills,
+    });
+  };
+
+  // Add Main Video to currently editing project
+  const handleAddMainVideo = async (urlToAdd?: string, titleToAdd?: string) => {
+    if (!editingProject) return;
+    const url = (urlToAdd || newVideoUrl).trim();
+    if (!url) return;
+    const currentVideos = editingProject.videos || [];
+    const title =
+      (titleToAdd || newVideoTitle).trim() ||
+      `Film ${String(currentVideos.length + 1).padStart(2, "0")}`;
+
+    let duration = "";
+    try {
+      duration = (await detectVideoDuration(url)) || "";
+    } catch {
+      // ignore
+    }
+
+    const newVid: ProjectVideo = {
+      url,
+      title,
+      duration,
+    };
+
+    const updatedVideos = [...currentVideos, newVid];
+    setEditingProject({
+      ...editingProject,
+      videos: updatedVideos,
+      fullVideoUrl: editingProject.fullVideoUrl || url,
+      duration: editingProject.duration || duration,
+    });
+    setNewVideoUrl("");
+    setNewVideoTitle("");
+  };
+
+  // Remove Main Video with confirmation
+  const handleRemoveMainVideo = (indexToRemove: number) => {
+    if (!editingProject || !editingProject.videos) return;
+    const vidToRemove = editingProject.videos[indexToRemove];
+    const vidLabel = vidToRemove?.title || `Video #${indexToRemove + 1}`;
+
+    setConfirmDialog({
+      title: "Elimina video principale",
+      message: `Sei sicuro di voler rimuovere "${vidLabel}" dall'elenco dei video principali del progetto?`,
+      confirmLabel: "Elimina Video",
+      onConfirm: async () => {
+        const updated = (editingProject.videos || []).filter((_, idx) => idx !== indexToRemove);
+        setEditingProject({
+          ...editingProject,
+          videos: updated,
+          fullVideoUrl: updated.length > 0 ? updated[0].url : "",
+        });
+      },
+    });
+  };
+
+  // Reorder Main Videos
+  const handleMoveMainVideo = (fromIndex: number, toIndex: number) => {
+    if (!editingProject || !editingProject.videos) return;
+    const list = [...editingProject.videos];
+    if (toIndex < 0 || toIndex >= list.length) return;
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, moved);
+    setEditingProject({
+      ...editingProject,
+      videos: list,
+      fullVideoUrl: list[0]?.url || "",
+    });
+  };
+
+  // Update Main Video fields (title, url, duration)
+  const handleUpdateMainVideo = (index: number, patch: Partial<ProjectVideo>) => {
+    if (!editingProject || !editingProject.videos) return;
+    const list = [...editingProject.videos];
+    if (!list[index]) return;
+    list[index] = { ...list[index], ...patch };
+    setEditingProject({
+      ...editingProject,
+      videos: list,
+      fullVideoUrl: list[0]?.url || "",
     });
   };
 
@@ -971,17 +1135,25 @@ export default function ManagePage() {
                 >
                   {/* Visual preview */}
                   <div className="md:col-span-3">
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60">
-                      <Image
-                        src={resolveMediaUrl(proj.posterImage || proj.stills?.[0]?.url || "/images/gt-night-race.jpg")}
-                        alt={proj.title.en || proj.title.it}
-                        fill
-                        unoptimized
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                      />
-                      <span className="absolute bottom-1 right-2 font-mono text-[10px] text-white/60">
-                        {proj.duration}
-                      </span>
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60 border border-white/5">
+                      {proj.posterImage || proj.stills?.[0]?.url ? (
+                        <Image
+                          src={resolveMediaUrl(proj.posterImage || proj.stills?.[0]?.url || "")}
+                          alt={proj.title.en || proj.title.it || "Project"}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-white/20 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
+                          <span>[ nessuna cover ]</span>
+                        </div>
+                      )}
+                      {proj.duration && (
+                        <span className="absolute bottom-1 right-2 font-mono text-[10px] text-white/60">
+                          {proj.duration}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -990,8 +1162,6 @@ export default function ManagePage() {
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono text-white/40">
                       <span>[{String(idx + 1).padStart(2, "0")}]</span>
                       <span>{proj.year}</span>
-                      <span>•</span>
-                      <span>{proj.categoryLabel.en || proj.categoryLabel.it}</span>
                       {proj.location && (
                         <>
                           <span>•</span>
@@ -1048,16 +1218,21 @@ export default function ManagePage() {
                     </Link>
 
                     <button
-                      onClick={async () => {
-                        const title = proj.title.en || proj.title.it;
-                        if (confirm(`Eliminare definitivamente il progetto "${title}"?`)) {
-                          const res = await deleteProject(proj.id);
-                          if (!res.ok) {
-                            alert(
-                              `Impossibile eliminare il progetto:\n${res.error || "Errore sconosciuto"}`
-                            );
-                          }
-                        }
+                      onClick={() => {
+                        const title = proj.title.en || proj.title.it || "Senza titolo";
+                        setConfirmDialog({
+                          title: "Elimina Progetto",
+                          message: `Sei sicuro di voler eliminare definitivamente il progetto "${title}"? Questa operazione non può essere annullata.`,
+                          confirmLabel: "[ elimina definitivamente ]",
+                          onConfirm: async () => {
+                            const res = await deleteProject(proj.id);
+                            if (!res.ok) {
+                              alert(
+                                `Impossibile eliminare il progetto:\n${res.error || "Errore sconosciuto"}`
+                              );
+                            }
+                          },
+                        });
                       }}
                       className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer"
                     >
@@ -1097,7 +1272,7 @@ export default function ManagePage() {
                   />
                   <div className="flex items-center gap-4">
                     <label className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer whitespace-nowrap">
-                      <span>{isUploading === "hero" ? "[ caricamento... ]" : "[ + carica video dal pc ]"}</span>
+                      <span>{isUploading === "hero" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video dal pc ]"}</span>
                       <input
                         type="file"
                         accept="video/*,.mp4,.webm,.mov"
@@ -1116,6 +1291,7 @@ export default function ManagePage() {
                               alert("Errore caricamento: " + (err instanceof Error ? err.message : ""));
                             } finally {
                               setIsUploading(null);
+                              e.target.value = "";
                             }
                           }
                         }}
@@ -1793,7 +1969,7 @@ export default function ManagePage() {
               {/* Upload controls */}
               <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
                 <label className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">
-                  <span>{isUploading === "media-video" ? "[ caricamento video... ]" : "[ + carica video (.mp4/.webm/.mov) ]"}</span>
+                  <span>{isUploading === "media-video" ? <AnimatedLoadingText label="caricamento video" /> : "[ + carica video (.mp4/.webm/.mov) ]"}</span>
                   <input
                     type="file"
                     accept="video/*,.mp4,.webm,.mov"
@@ -1808,6 +1984,7 @@ export default function ManagePage() {
                           alert(err instanceof Error ? err.message : "Errore");
                         } finally {
                           setIsUploading(null);
+                          e.target.value = "";
                         }
                       }
                     }}
@@ -1816,7 +1993,7 @@ export default function ManagePage() {
                 </label>
 
                 <label className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">
-                  <span>{isUploading === "media-image" ? "[ caricamento immagine... ]" : "[ + carica immagine (.jpg/.png/.webp) ]"}</span>
+                  <span>{isUploading === "media-image" ? <AnimatedLoadingText label="caricamento immagine" /> : "[ + carica immagine (.jpg/.png/.webp) ]"}</span>
                   <input
                     type="file"
                     accept="image/*,.jpg,.jpeg,.png,.webp"
@@ -1831,6 +2008,7 @@ export default function ManagePage() {
                           alert(err instanceof Error ? err.message : "Errore");
                         } finally {
                           setIsUploading(null);
+                          e.target.value = "";
                         }
                       }
                     }}
@@ -2015,9 +2193,14 @@ export default function ManagePage() {
 
                 <button
                   onClick={() => {
-                    if (confirm("Ripristinare tutti i dati originali di fabbrica?")) {
-                      resetToDefaults();
-                    }
+                    setConfirmDialog({
+                      title: "Reset Dati di Fabbrica",
+                      message: "Ripristinare tutti i dati originali di fabbrica? Le modifiche correnti verranno sovrascritte.",
+                      confirmLabel: "[ conferma reset ]",
+                      onConfirm: async () => {
+                        await resetToDefaults();
+                      },
+                    });
                   }}
                   className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer"
                 >
@@ -2140,7 +2323,7 @@ export default function ManagePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="text-white/40 block">anno</label>
                   <input
@@ -2159,7 +2342,10 @@ export default function ManagePage() {
                     <button
                       type="button"
                       onClick={async () => {
-                        const targetUrl = editingProject.fullVideoUrl || editingProject.videoPreviewUrl;
+                        const targetUrl =
+                        editingProject.videos?.[0]?.url ||
+                        editingProject.fullVideoUrl ||
+                        editingProject.videoPreviewUrl;
                         if (!targetUrl) {
                           alert("Carica o inserisci prima l'URL di un video.");
                           return;
@@ -2188,35 +2374,6 @@ export default function ManagePage() {
                     className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                   />
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-white/40 block">categoria</label>
-                  <select
-                    value={editingProject.category}
-                    onChange={(e) => {
-                      const cat = e.target.value as LocalizedProject["category"];
-                      const labels: Record<string, { it: string; en: string }> = {
-                        gt: { it: "FORMULA & GT", en: "FORMULA & GT" },
-                        pursuit: { it: "TRACK PURSUIT", en: "TRACK PURSUIT" },
-                        rally: { it: "RALLY & DIRT", en: "RALLY & DIRT" },
-                        commercial: { it: "COMMERCIAL CAMPAIGN", en: "COMMERCIAL CAMPAIGN" },
-                        all: { it: "MOTORSPORT CINEMA", en: "MOTORSPORT CINEMA" },
-                      };
-                      setEditingProject({
-                        ...editingProject,
-                        category: cat,
-                        categoryLabel: labels[cat] || { it: "CINEMA", en: "CINEMA" },
-                      });
-                    }}
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors [&>option]:bg-black"
-                  >
-                    <option value="gt">Formula & GT</option>
-                    <option value="pursuit">Track Pursuit</option>
-                    <option value="rally">Rally & Dirt</option>
-                    <option value="commercial">Commercial</option>
-                    <option value="all">Altro</option>
-                  </select>
-                </div>
               </div>
 
               <div className="space-y-1">
@@ -2237,135 +2394,79 @@ export default function ManagePage() {
             <div className="space-y-6 pt-4 border-t border-white/10">
               <div className="text-white/40 uppercase tracking-widest">{"//"} video & poster</div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
+              {/* Video Preview (for homepage hover cards) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
                     <label className="text-white/40 block">video preview url (hover home)</label>
-                    <label className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer">
-                      <span>{isUploading === "proj-preview" ? "[ caricamento... ]" : "[ + carica video ]"}</span>
-                      <input
-                        type="file"
-                        accept="video/*,.mp4,.webm,.mov"
-                        disabled={isUploading === "proj-preview"}
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0];
-                          if (f) {
-                            setIsUploading("proj-preview");
-                            detectVideoDuration(f).then((dur) => {
-                              if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                            });
-                            try {
-                              const path = await handleUploadFile(f, "video");
-                              if (path) setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
-                            } catch (err) {
-                              alert(err instanceof Error ? err.message : "Errore");
-                            } finally {
-                              setIsUploading(null);
-                            }
-                          }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
+                    <span className="text-[10px] text-white/30 font-mono">Breve loop riprodotto al passaggio del mouse sulle card della home</span>
                   </div>
-                  <input
-                    type="text"
-                    value={editingProject.videoPreviewUrl}
-                    onBlur={async () => {
-                      if (!editingProject.duration && editingProject.videoPreviewUrl) {
-                        const dur = await detectVideoDuration(editingProject.videoPreviewUrl);
-                        if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                      }
-                    }}
-                    onChange={(e) =>
-                      setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: e.target.value } : null))
-                    }
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-white/40 block">video completo url (pagina dedicata)</label>
-                    <label className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer">
-                      <span>{isUploading === "proj-full" ? "[ caricamento... ]" : "[ + carica video ]"}</span>
-                      <input
-                        type="file"
-                        accept="video/*,.mp4,.webm,.mov"
-                        disabled={isUploading === "proj-full"}
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0];
-                          if (f) {
-                            setIsUploading("proj-full");
-                            detectVideoDuration(f).then((dur) => {
-                              if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                            });
-                            try {
-                              const path = await handleUploadFile(f, "video");
-                              if (path) setEditingProject((prev) => (prev ? { ...prev, fullVideoUrl: path } : null));
-                            } catch (err) {
-                              alert(err instanceof Error ? err.message : "Errore");
-                            } finally {
-                              setIsUploading(null);
+                  <label className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer">
+                    <span>{isUploading === "proj-preview" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video preview ]"}</span>
+                    <input
+                      type="file"
+                      accept="video/*,.mp4,.webm,.mov"
+                      disabled={isUploading === "proj-preview"}
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          setIsUploading("proj-preview");
+                          detectVideoDuration(f).then((dur) => {
+                            if (dur && !editingProject.duration) {
+                              setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
                             }
+                          });
+                          try {
+                            const path = await handleUploadFile(f, "video");
+                            if (path) setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
+                          } catch (err) {
+                            alert(err instanceof Error ? err.message : "Errore");
+                          } finally {
+                            setIsUploading(null);
+                            e.target.value = "";
                           }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    value={editingProject.fullVideoUrl}
-                    onBlur={async () => {
-                      if (editingProject.fullVideoUrl) {
-                        const dur = await detectVideoDuration(editingProject.fullVideoUrl);
-                        if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                      }
-                    }}
-                    onChange={(e) =>
-                      setEditingProject((prev) => (prev ? { ...prev, fullVideoUrl: e.target.value } : null))
-                    }
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                  />
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
+                <input
+                  type="text"
+                  value={editingProject.videoPreviewUrl}
+                  placeholder="nessun URL video impostato"
+                  onBlur={async () => {
+                    if (!editingProject.duration && editingProject.videoPreviewUrl) {
+                      const dur = await detectVideoDuration(editingProject.videoPreviewUrl);
+                      if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
+                    }
+                  }}
+                  onChange={(e) =>
+                    setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: e.target.value } : null))
+                  }
+                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
+                />
+                {editingProject.videoPreviewUrl && (
+                  <div className="pt-1 flex items-center justify-between text-[11px] text-white/40 font-mono">
+                    <span className="truncate max-w-[300px]">{editingProject.videoPreviewUrl}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: "" } : null))}
+                      className="text-red-400 hover:text-red-300 ml-2 cursor-pointer"
+                    >
+                      [ rimuovi ]
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Video Library Quick Picker & Preview Player */}
-              {activeVideos.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-white/40">
-                  <span className="text-white/60">scegli dai video in libreria:</span>
-                  {activeVideos.map((vid) => (
-                    <button
-                      key={vid.path}
-                      type="button"
-                      onClick={async () => {
-                        const dur = await detectVideoDuration(vid.path);
-                        setEditingProject((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                fullVideoUrl: vid.path,
-                                videoPreviewUrl: prev.videoPreviewUrl || vid.path,
-                                duration: dur || prev.duration,
-                              }
-                            : null
-                        );
-                      }}
-                      className="text-white/70 hover:text-white hover:underline transition-colors truncate max-w-[180px] cursor-pointer"
-                    >
-                      [ {vid.name} ]
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {(editingProject.fullVideoUrl || editingProject.videoPreviewUrl) && (
-                <div className="space-y-1 pt-2">
-                  <div className="text-[11px] font-mono text-white/40">anteprima video:</div>
-                  <div className="relative aspect-video w-full max-w-md rounded-lg overflow-hidden bg-black/60 border border-white/10">
+              {/* Video Preview Visual player if set */}
+              {editingProject.videoPreviewUrl && (
+                <div className="space-y-1">
+                  <div className="text-[11px] font-mono text-white/40">anteprima video hover home:</div>
+                  <div className="relative aspect-video w-full max-w-sm rounded-lg overflow-hidden bg-black/60 border border-white/10">
                     <video
-                      src={resolveMediaUrl(editingProject.fullVideoUrl || editingProject.videoPreviewUrl)}
+                      src={resolveMediaUrl(editingProject.videoPreviewUrl)}
                       controls
                       muted
                       className="w-full h-full object-cover"
@@ -2374,11 +2475,288 @@ export default function ManagePage() {
                 </div>
               )}
 
+              {/* MULTI MAIN VIDEOS SECTION (DEDICATED PROJECT PAGE) */}
+              <div className="space-y-4 pt-4 border-t border-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm text-white font-medium flex items-center gap-2">
+                      <span className="text-[#e0fe10] font-mono">{"//"}</span>
+                      <span>video principali (pagina progetto)</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+                        {editingProject.videos?.length || 0} {editingProject.videos?.length === 1 ? "video" : "video"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-white/50 font-mono mt-0.5">
+                      Puoi caricare più video principali (es. Main Film 4K, Director&apos;s Cut, Teaser, Reel). Gli spettatori potranno selezionarli direttamente nella pagina del progetto.
+                    </p>
+                  </div>
+
+                  <label className="text-[11px] text-[#e0fe10] hover:brightness-110 cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto py-1 px-3 rounded border border-[#e0fe10]/30 bg-[#e0fe10]/10 transition-all font-mono">
+                    <span>{isUploading === "proj-videos" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video dal pc ]"}</span>
+                    <input
+                      type="file"
+                      accept="video/*,.mp4,.webm,.mov"
+                      multiple
+                      disabled={isUploading === "proj-videos"}
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (files.length === 0) return;
+                        setIsUploading("proj-videos");
+                        try {
+                          const newVids: ProjectVideo[] = [];
+                          for (let i = 0; i < files.length; i++) {
+                            const f = files[i];
+                            const durPromise = detectVideoDuration(f);
+                            const path = await handleUploadFile(f, "video");
+                            const dur = (await durPromise) || "";
+                            if (path) {
+                              const cleanTitle = f.name
+                                .replace(/\.[^/.]+$/, "")
+                                .replace(/[-_]/g, " ");
+                              newVids.push({
+                                url: path,
+                                title: cleanTitle || `Film ${String((editingProject?.videos?.length || 0) + i + 1).padStart(2, "0")}`,
+                                duration: dur,
+                              });
+                            }
+                          }
+                          if (newVids.length > 0) {
+                            setEditingProject((prev) => {
+                              if (!prev) return null;
+                              const combined = [...(prev.videos || []), ...newVids];
+                              return {
+                                ...prev,
+                                videos: combined,
+                                fullVideoUrl: prev.fullVideoUrl || combined[0]?.url || "",
+                                duration: prev.duration || combined[0]?.duration || "",
+                              };
+                            });
+                          }
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "Errore caricamento video");
+                        } finally {
+                          setIsUploading(null);
+                          e.target.value = "";
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* List of Main Videos */}
+                {editingProject.videos && editingProject.videos.length > 0 ? (
+                  <div className="space-y-3">
+                    {editingProject.videos.map((vid, vIdx) => {
+                      const isFirst = vIdx === 0;
+                      const isLast = vIdx === (editingProject.videos?.length || 0) - 1;
+                      return (
+                        <div
+                          key={`main-vid-${vIdx}-${vid.url}`}
+                          className="bg-black/50 border border-white/10 rounded-lg p-3 sm:p-4 space-y-3 hover:border-white/20 transition-colors"
+                        >
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2 text-[11px] font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#e0fe10] font-bold">
+                                [ {String(vIdx + 1).padStart(2, "0")} ]
+                              </span>
+                              {isFirst ? (
+                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#e0fe10]/15 text-[#e0fe10] border border-[#e0fe10]/30">
+                                  Default / Player Iniziale
+                                </span>
+                              ) : (
+                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-white/5 text-white/50 border border-white/10">
+                                  Video #{vIdx + 1}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={isFirst}
+                                onClick={() => handleMoveMainVideo(vIdx, vIdx - 1)}
+                                className="bg-black/80 hover:bg-white hover:text-black text-white px-2 py-0.5 rounded disabled:opacity-20 disabled:hover:bg-black/80 disabled:hover:text-white transition-colors cursor-pointer border border-white/20"
+                                title="Sposta su"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isLast}
+                                onClick={() => handleMoveMainVideo(vIdx, vIdx + 1)}
+                                className="bg-black/80 hover:bg-white hover:text-black text-white px-2 py-0.5 rounded disabled:opacity-20 disabled:hover:bg-black/80 disabled:hover:text-white transition-colors cursor-pointer border border-white/20"
+                                title="Sposta giù"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMainVideo(vIdx)}
+                                className="text-red-400 hover:text-red-300 hover:underline ml-1 cursor-pointer"
+                              >
+                                [ rimuovi ]
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-center">
+                            {/* Video preview mini player */}
+                            <div className="md:col-span-4 aspect-video rounded overflow-hidden bg-black/80 border border-white/10 relative group">
+                              <video
+                                src={resolveMediaUrl(vid.url)}
+                                controls
+                                preload="metadata"
+                                muted
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+
+                            {/* Video details inputs */}
+                            <div className="md:col-span-8 space-y-2.5">
+                              <div>
+                                <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                  Titolo / Versione video
+                                </label>
+                                <input
+                                  type="text"
+                                  value={vid.title || ""}
+                                  placeholder="es. Main Film 4K, Director's Cut, Instagram Reel"
+                                  onChange={(e) =>
+                                    handleUpdateMainVideo(vIdx, { title: e.target.value })
+                                  }
+                                  className="w-full bg-transparent border-b border-white/15 py-1 text-sm text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="sm:col-span-2">
+                                  <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                    URL / Percorso Video
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={vid.url}
+                                    placeholder="/media/videos/..."
+                                    onChange={(e) =>
+                                      handleUpdateMainVideo(vIdx, { url: e.target.value })
+                                    }
+                                    className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                      Durata
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const dur = await detectVideoDuration(vid.url);
+                                        if (dur) {
+                                          handleUpdateMainVideo(vIdx, { duration: dur });
+                                          if (isFirst && !editingProject.duration) {
+                                            setEditingProject((p) => p ? { ...p, duration: dur } : null);
+                                          }
+                                        }
+                                      }}
+                                      className="text-[9px] text-white/60 hover:text-white hover:underline cursor-pointer"
+                                    >
+                                      ⟳ rileva
+                                    </button>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={vid.duration || ""}
+                                    placeholder="es. 02:45"
+                                    onChange={(e) =>
+                                      handleUpdateMainVideo(vIdx, { duration: e.target.value })
+                                    }
+                                    className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-white/15 rounded-lg p-5 text-center text-xs font-mono text-white/40">
+                    Nessun video principale aggiunto. Carica uno o più video dal computer oppure inserisci l&apos;URL qui sotto.
+                  </div>
+                )}
+
+                {/* Add video manually via inputs */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/10 space-y-2.5">
+                  <div className="text-[11px] font-mono text-white/60 uppercase">
+                    + Aggiungi video da URL o libreria
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div className="sm:col-span-7">
+                      <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono mb-1">
+                        URL o percorso video
+                      </label>
+                      <input
+                        type="text"
+                        value={newVideoUrl}
+                        onChange={(e) => setNewVideoUrl(e.target.value)}
+                        placeholder="https://... o /media/videos/..."
+                        className="w-full bg-transparent border-b border-white/20 py-1.5 text-xs text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20 font-mono"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono mb-1">
+                        Titolo video
+                      </label>
+                      <input
+                        type="text"
+                        value={newVideoTitle}
+                        onChange={(e) => setNewVideoTitle(e.target.value)}
+                        placeholder="es. Teaser Reel"
+                        className="w-full bg-transparent border-b border-white/20 py-1.5 text-xs text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddMainVideo()}
+                        disabled={!newVideoUrl.trim()}
+                        className="w-full text-center py-1.5 text-xs font-mono bg-white/10 hover:bg-white text-white hover:text-black rounded transition-colors disabled:opacity-30 disabled:hover:bg-white/10 disabled:hover:text-white cursor-pointer"
+                      >
+                        [ + aggiungi ]
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Video library quick picker */}
+                  {activeVideos.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1.5 text-[11px] text-white/40 border-t border-white/5">
+                      <span className="text-white/60">Aggiungi rapido da libreria:</span>
+                      {activeVideos.map((vid) => (
+                        <button
+                          key={vid.path}
+                          type="button"
+                          onClick={() => {
+                            const cleanName = vid.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+                            handleAddMainVideo(vid.path, cleanName);
+                          }}
+                          className="text-white/70 hover:text-white hover:underline transition-colors truncate max-w-[200px] cursor-pointer"
+                        >
+                          + {vid.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-white/40 block">poster image url</label>
                   <label className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer">
-                    <span>{isUploading === "proj-poster" ? "[ caricamento... ]" : "[ + carica cover dal pc ]"}</span>
+                    <span>{isUploading === "proj-poster" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica cover dal pc ]"}</span>
                     <input
                       type="file"
                       accept="image/*,.jpg,.jpeg,.png,.webp"
@@ -2394,6 +2772,7 @@ export default function ManagePage() {
                             alert(err instanceof Error ? err.message : "Errore");
                           } finally {
                             setIsUploading(null);
+                            e.target.value = "";
                           }
                         }
                       }}
@@ -2404,10 +2783,11 @@ export default function ManagePage() {
                 <input
                   type="text"
                   value={editingProject.posterImage}
+                  placeholder="nessun URL cover impostato"
                   onChange={(e) =>
                     setEditingProject((prev) => (prev ? { ...prev, posterImage: e.target.value } : null))
                   }
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
+                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
                 />
 
                 {/* Cover Library Quick Picker */}
@@ -2455,7 +2835,7 @@ export default function ManagePage() {
                 </div>
 
                 <label className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">
-                  <span>{isUploading === "proj-stills" ? "[ caricamento foto... ]" : "[ + carica foto dal pc ]"}</span>
+                  <span>{isUploading === "proj-stills" ? <AnimatedLoadingText label="caricamento foto" /> : "[ + carica foto dal pc ]"}</span>
                   <input
                     type="file"
                     accept="image/*,.jpg,.jpeg,.png,.webp"
@@ -2489,6 +2869,7 @@ export default function ManagePage() {
                           alert(err instanceof Error ? err.message : "Errore caricamento");
                         } finally {
                           setIsUploading(null);
+                          e.target.value = "";
                         }
                       }
                     }}
@@ -2497,26 +2878,132 @@ export default function ManagePage() {
                 </label>
               </div>
 
-              {/* Grid of stills with remove */}
+              {/* Grid of stills with drag-and-drop and arrow reordering */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {editingProject.stills?.map((still, sIdx) => (
-                  <div key={sIdx} className="group relative aspect-[16/10] rounded-xl overflow-hidden bg-black">
-                    <Image
-                      src={resolveMediaUrl(still.url)}
-                      alt=""
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveStill(sIdx)}
-                      className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white/80 hover:text-white"
+                {editingProject.stills?.map((still, sIdx) => {
+                  const isFirst = sIdx === 0;
+                  const isLast = sIdx === (editingProject.stills?.length || 1) - 1;
+                  const isCover = editingProject.posterImage === still.url;
+
+                  return (
+                    <div
+                      key={sIdx}
+                      draggable
+                      onDragStart={() => setDraggedStillIndex(sIdx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        if (draggedStillIndex !== null && draggedStillIndex !== sIdx) {
+                          handleMoveStill(draggedStillIndex, sIdx);
+                          setDraggedStillIndex(null);
+                        }
+                      }}
+                      onDragEnd={() => setDraggedStillIndex(null)}
+                      className={`group relative aspect-[16/10] rounded-xl overflow-hidden bg-black border transition-all cursor-grab active:cursor-grabbing ${
+                        draggedStillIndex === sIdx
+                          ? "opacity-30 border-white/60 scale-95"
+                          : isCover
+                          ? "border-[#e0fe10]/50"
+                          : "border-white/10 hover:border-white/30"
+                      }`}
                     >
-                      [ rimuovi ]
-                    </button>
-                  </div>
-                ))}
+                      <Image
+                        src={resolveMediaUrl(still.url)}
+                        alt=""
+                        fill
+                        unoptimized
+                        className="object-cover pointer-events-none"
+                      />
+
+                      {/* Index Badge & Cover Tag */}
+                      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1.5 pointer-events-none">
+                        <span className="font-mono text-[10px] bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded border border-white/10 text-white/80">
+                          [{String(sIdx + 1).padStart(2, "0")}]
+                        </span>
+                        {isCover && (
+                          <span className="font-mono text-[9px] bg-[#e0fe10] text-black font-bold px-1.5 py-0.5 rounded">
+                            COVER
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Interactive Actions Overlay */}
+                      <div className="absolute inset-0 bg-black/60 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                        {/* Top bar: Cover shortcut + Remove */}
+                        <div className="flex items-center justify-between gap-1">
+                          {!isCover ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject((prev) =>
+                                  prev ? { ...prev, posterImage: still.url } : null
+                                );
+                              }}
+                              className="font-mono text-[9px] text-white/70 hover:text-white bg-black/80 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                              title="Imposta come cover del progetto"
+                            >
+                              [ usa cover ]
+                            </button>
+                          ) : (
+                            <div />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDialog({
+                                title: "Rimuovi Still",
+                                message: `Rimuovere la foto [${String(sIdx + 1).padStart(2, "0")}] da questo progetto?`,
+                                confirmLabel: "[ rimuovi still ]",
+                                onConfirm: () => {
+                                  handleRemoveStill(sIdx);
+                                },
+                              });
+                            }}
+                            className="font-mono text-[10px] text-red-400 hover:text-red-300 hover:underline bg-black/80 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                            title="Rimuovi foto"
+                          >
+                            [ rimuovi ]
+                          </button>
+                        </div>
+
+                        {/* Bottom bar: Move Left / Move Right */}
+                        <div className="flex items-center justify-between font-mono text-xs pt-1">
+                          <button
+                            type="button"
+                            disabled={isFirst}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveStill(sIdx, sIdx - 1);
+                            }}
+                            className="bg-black/90 hover:bg-white hover:text-black text-white px-2 py-0.5 rounded disabled:opacity-20 disabled:hover:bg-black/90 disabled:hover:text-white transition-colors cursor-pointer border border-white/20"
+                            title="Sposta a sinistra (prima)"
+                          >
+                            ←
+                          </button>
+
+                          <span className="text-[9px] text-white/50 select-none hidden sm:inline">
+                            trascina o frecce
+                          </span>
+
+                          <button
+                            type="button"
+                            disabled={isLast}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveStill(sIdx, sIdx + 1);
+                            }}
+                            className="bg-black/90 hover:bg-white hover:text-black text-white px-2 py-0.5 rounded disabled:opacity-20 disabled:hover:bg-black/90 disabled:hover:text-white transition-colors cursor-pointer border border-white/20"
+                            title="Sposta a destra (dopo)"
+                          >
+                            →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Add still via text */}
@@ -2525,8 +3012,8 @@ export default function ManagePage() {
                   type="text"
                   value={newStillUrl}
                   onChange={(e) => setNewStillUrl(e.target.value)}
-                  placeholder="percorso foto (es. /images/gt-night-race.jpg o url)"
-                  className="flex-1 bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
+                  placeholder="inserisci URL o percorso foto"
+                  className="flex-1 bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
                 />
                 <button
                   type="button"
@@ -2573,6 +3060,76 @@ export default function ManagePage() {
                 className="text-white hover:italic transition-colors cursor-pointer font-bold"
               >
                 {isCreatingNew ? "[ crea progetto → ]" : "[ salva modifiche → ]"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Custom Confirmation Popup Modal */}
+      {confirmDialog && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-cinema-fade"
+          onClick={() => {
+            if (!isConfirming) setConfirmDialog(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#0c0c0e] border border-red-500/25 max-w-md w-full rounded-2xl p-6 sm:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.95)] space-y-5 animate-cinema-blur"
+          >
+            {/* Header with status tag */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-mono text-xs text-red-400 uppercase tracking-widest">
+                <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span>{"//"} conferma operazione</span>
+              </div>
+              <button
+                type="button"
+                disabled={isConfirming}
+                onClick={() => setConfirmDialog(null)}
+                className="font-mono text-xs text-white/40 hover:text-white transition-colors cursor-pointer disabled:opacity-30"
+              >
+                [ ✕ ]
+              </button>
+            </div>
+
+            {/* Title & Description */}
+            <div className="space-y-2">
+              <h3 className="text-lg sm:text-xl font-light tracking-tight text-white uppercase">
+                {confirmDialog.title}
+              </h3>
+              <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
+                {confirmDialog.message}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 flex items-center justify-end gap-3 font-mono text-xs">
+              <button
+                type="button"
+                disabled={isConfirming}
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 rounded-lg border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition-colors cursor-pointer disabled:opacity-30"
+              >
+                [ annulla ]
+              </button>
+              <button
+                type="button"
+                disabled={isConfirming}
+                onClick={async () => {
+                  setIsConfirming(true);
+                  try {
+                    await confirmDialog.onConfirm();
+                  } finally {
+                    setIsConfirming(false);
+                    setConfirmDialog(null);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-red-600/90 hover:bg-red-500 text-white font-bold transition-all shadow-[0_0_20px_rgba(220,38,38,0.35)] cursor-pointer disabled:opacity-50"
+              >
+                {isConfirming ? "[ eliminazione... ]" : confirmDialog.confirmLabel || "[ conferma ]"}
               </button>
             </div>
           </div>

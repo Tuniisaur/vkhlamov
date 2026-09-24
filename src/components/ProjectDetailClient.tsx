@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -9,8 +9,9 @@ import { useSiteData } from "@/context/SiteDataContext";
 import CustomCursor from "@/components/CustomCursor";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
-import { formatVideoDuration } from "@/utils/videoDuration";
+import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import LogoPreloader from "@/components/LogoPreloader";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -46,6 +47,36 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const stillsRef = useRef<HTMLElement>(null);
   const switcherRef = useRef<HTMLElement>(null);
   const footerRef = useRef<HTMLElement>(null);
+
+  // Multi-video support: parse all main videos of the project
+  const allVideos = useMemo(() => {
+    const list: { url: string; title: string; duration?: string }[] = [];
+    if (Array.isArray(project?.videos) && project.videos.length > 0) {
+      project.videos.forEach((v, idx) => {
+        if (typeof v === "string" && (v as string).trim()) {
+          list.push({ url: (v as string).trim(), title: `Film 0${idx + 1}` });
+        } else if (v && typeof v === "object" && v.url?.trim()) {
+          list.push({
+            url: v.url.trim(),
+            title: v.title?.trim() || `Film 0${idx + 1}`,
+            duration: v.duration?.trim(),
+          });
+        }
+      });
+    }
+    if (list.length === 0 && project && (project.fullVideoUrl || project.videoPreviewUrl)) {
+      list.push({
+        url: project.fullVideoUrl || project.videoPreviewUrl,
+        title: "Main Film",
+        duration: project.duration,
+      });
+    }
+    return list;
+  }, [project]);
+
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+  const activeVideo = allVideos[selectedVideoIndex] || allVideos[0];
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState("00:00:00:00");
@@ -54,6 +85,35 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const [bottomOffset, setBottomOffset] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState<string | null>(null);
+  const [isProjectMediaReady, setIsProjectMediaReady] = useState(false);
+
+  // Check if video is already ready/cached
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      setIsProjectMediaReady(true);
+    }
+  }, [projectId, selectedVideoIndex]);
+
+  // Reset selected video index when navigating to another project
+  useEffect(() => {
+    setSelectedVideoIndex(0);
+    setIsProjectMediaReady(false);
+  }, [projectId]);
+
+  // Detect duration for current active video
+  useEffect(() => {
+    let isCancelled = false;
+    if (activeVideo?.duration) {
+      setDetectedDuration(activeVideo.duration);
+    } else if (activeVideo?.url) {
+      detectVideoDuration(activeVideo.url).then((dur) => {
+        if (!isCancelled && dur) setDetectedDuration(dur);
+      });
+    }
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeVideo]);
 
   // Always start at the very top of the page when opening or switching projects
   useEffect(() => {
@@ -88,6 +148,65 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, [projectId]);
 
   // Scroll listener for stills visibility and switcher/footer overlap avoidance
+  // + Progressive audio fading when scrolling down towards "stills & frames"
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  const calculateScrollVolume = useCallback((): number => {
+    if (typeof window === "undefined") return 1;
+    const vh = window.innerHeight;
+    let volume = 1;
+
+    // 1. Calculate proximity to "stills & frames" section
+    if (stillsRef.current) {
+      const stillsRect = stillsRef.current.getBoundingClientRect();
+      // When stills section approaches the bottom of the viewport (110% of vh),
+      // begin fading out smoothly until it reaches 35% of vh (where stills title and top frames are in view)
+      const fadeStart = vh * 1.1;
+      const fadeEnd = vh * 0.35;
+
+      if (stillsRect.top <= fadeEnd) {
+        volume = 0;
+      } else if (stillsRect.top < fadeStart) {
+        const factor = (stillsRect.top - fadeEnd) / (fadeStart - fadeEnd);
+        volume = Math.min(volume, factor);
+      }
+    }
+
+    // 2. Also ensure volume fades out if the video player scrolls off the top of the viewport
+    if (videoRef.current) {
+      const videoRect = videoRef.current.getBoundingClientRect();
+      if (videoRect.bottom <= 0) {
+        volume = 0;
+      } else if (videoRect.bottom < vh * 0.45) {
+        const factor = Math.max(0, videoRect.bottom / (vh * 0.45));
+        volume = Math.min(volume, factor);
+      }
+    }
+
+    return Math.max(0, Math.min(1, volume));
+  }, []);
+
+  const applyAudioFade = useCallback(() => {
+    if (!videoRef.current) return;
+    if (isMutedRef.current) {
+      if (!videoRef.current.muted) videoRef.current.muted = true;
+      if (videoRef.current.volume !== 0) videoRef.current.volume = 0;
+      return;
+    }
+
+    const vol = calculateScrollVolume();
+    if (vol <= 0.01) {
+      videoRef.current.volume = 0;
+      videoRef.current.muted = true;
+    } else {
+      videoRef.current.muted = false;
+      videoRef.current.volume = Math.round(vol * 100) / 100;
+    }
+  }, [calculateScrollVolume]);
+
   useEffect(() => {
     const checkBottomOffset = () => {
       const vh = window.innerHeight;
@@ -114,6 +233,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
     const handleScroll = () => {
       checkBottomOffset();
+      applyAudioFade();
       if (stillsRef.current) {
         const rect = stillsRef.current.getBoundingClientRect();
         setIsScrolledToStills(rect.top < window.innerHeight * 0.75);
@@ -130,7 +250,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
-  }, []);
+  }, [applyAudioFade]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -138,13 +258,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.volume = 1;
       videoRef.current.currentTime = 0;
-      setIsMuted(false);
       videoRef.current
         .play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          setIsPlaying(true);
+          applyAudioFade();
+        })
         .catch(() => {
           // If browser policy restricts autoplay with audio before direct interaction,
           // fallback to muted playback so playback starts smoothly
@@ -155,18 +275,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               .then(() => {
                 setIsPlaying(true);
                 setIsMuted(true);
+                isMutedRef.current = true;
               })
               .catch(() => setIsPlaying(false));
           }
         });
     }
-  }, [projectId]);
+  }, [projectId, selectedVideoIndex, applyAudioFade]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
       videoRef.current.play();
       setIsPlaying(true);
+      applyAudioFade();
     } else {
       videoRef.current.pause();
       setIsPlaying(false);
@@ -176,9 +298,22 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const toggleSound = () => {
     if (!videoRef.current) return;
     const nextMuted = !isMuted;
-    videoRef.current.muted = nextMuted;
-    videoRef.current.volume = nextMuted ? 0 : 1;
     setIsMuted(nextMuted);
+    isMutedRef.current = nextMuted;
+
+    if (nextMuted) {
+      videoRef.current.muted = true;
+      videoRef.current.volume = 0;
+    } else {
+      const vol = calculateScrollVolume();
+      if (vol <= 0.01) {
+        videoRef.current.muted = true;
+        videoRef.current.volume = 0;
+      } else {
+        videoRef.current.muted = false;
+        videoRef.current.volume = Math.round(vol * 100) / 100;
+      }
+    }
   };
 
   const handleTimeUpdate = () => {
@@ -372,17 +507,16 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   if (!project) {
     if (isLoading) {
-      return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-          <div className="w-8 h-8 border border-white/20 border-t-white rounded-full animate-spin" />
-        </div>
-      );
+      return <LogoPreloader minDuration={0.8} maxDuration={2.5} />;
     }
     notFound();
   }
 
   return (
     <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between p-3 sm:p-6 md:p-8 select-none">
+      {/* Framer Logo Preloader on entering project */}
+      <LogoPreloader key={projectId} isReady={isProjectMediaReady} minDuration={0.8} maxDuration={2.5} />
+
       <CustomCursor />
 
       {/* ── 1. Top Header: VKHLAMOV + Menu Directly Underneath (IDENTICAL TO HOME) ── */}
@@ -447,16 +581,52 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         
         {/* ── SECTION 1: IN PRIMO PIANO IL VIDEO (Widescreen Cinema Player, No Boxes, No Heavy Borders) ── */}
         <section className="space-y-4 sm:space-y-6 animate-cinema-fade">
+          {/* Multi-video Switcher Tabs (when more than 1 main video exists) */}
+          {allVideos.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 font-mono text-xs pb-1">
+              <span className="text-white/40 uppercase tracking-widest text-[11px] mr-1">
+                {"//"} video ({allVideos.length}):
+              </span>
+              {allVideos.map((vid, vIdx) => {
+                const isSelected = selectedVideoIndex === vIdx;
+                return (
+                  <button
+                    key={vIdx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVideoIndex(vIdx);
+                      setIsPlaying(true);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg border font-mono text-xs transition-all cursor-pointer flex items-center gap-2 ${
+                      isSelected
+                        ? "border-[#e0fe10] text-[#e0fe10] bg-[#e0fe10]/10 font-bold shadow-[0_0_15px_rgba(224,254,16,0.15)]"
+                        : "border-white/10 text-white/60 hover:text-white hover:border-white/30 bg-black/40"
+                    }`}
+                  >
+                    <span>[ 0{vIdx + 1} // {vid.title} ]</span>
+                    {vid.duration && (
+                      <span className="text-[10px] opacity-60 font-normal">{vid.duration}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="relative w-full aspect-video bg-black overflow-hidden rounded-lg group">
             <video
+              key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
-              src={resolveMediaUrl(project.fullVideoUrl || project.videoPreviewUrl)}
+              src={resolveMediaUrl(activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl)}
               autoPlay
               muted={isMuted}
               loop
               playsInline
+              preload="auto"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
+              onLoadedData={() => setIsProjectMediaReady(true)}
+              onCanPlay={() => setIsProjectMediaReady(true)}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onClick={togglePlay}
@@ -535,8 +705,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </h2>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
               <span>{project.year}</span>
-              <span>•</span>
-              <span>{project.categoryLabel.en || project.categoryLabel.it}</span>
               {project.location && (
                 <>
                   <span>•</span>
@@ -554,6 +722,64 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               <p className="text-sm sm:text-base text-white/70 font-light tracking-wide pt-1">
                 {project.subtitle.en || project.subtitle.it}
               </p>
+            )}
+
+            {/* Multi-video Visual Grid (when more than 1 main video exists) */}
+            {allVideos.length > 1 && (
+              <div className="pt-6 sm:pt-8 border-t border-white/10 space-y-3">
+                <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
+                  <span>{"//"} tutti i video del film ({allVideos.length})</span>
+                  <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
+                    seleziona per riprodurre nel player
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                  {allVideos.map((vid, vIdx) => {
+                    const isSelected = selectedVideoIndex === vIdx;
+                    return (
+                      <div
+                        key={vIdx}
+                        onClick={() => {
+                          setSelectedVideoIndex(vIdx);
+                          setIsPlaying(true);
+                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 ${
+                          isSelected
+                            ? "border-[#e0fe10] bg-[#e0fe10]/5 shadow-[0_0_20px_rgba(224,254,16,0.12)]"
+                            : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
+                        }`}
+                      >
+                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+                          <video
+                            src={resolveMediaUrl(vid.url)}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
+                          <div className="absolute top-1.5 left-1.5 font-mono text-[10px] bg-black/80 px-1.5 py-0.5 rounded text-white/80 border border-white/10">
+                            0{vIdx + 1}
+                          </div>
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center font-mono text-xs text-[#e0fe10] font-bold">
+                              [ in riproduzione ]
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono px-0.5">
+                          <span className={`truncate font-medium ${isSelected ? "text-[#e0fe10]" : "text-white"}`}>
+                            {vid.title}
+                          </span>
+                          {vid.duration && (
+                            <span className="text-white/40 text-[10px] shrink-0 ml-2">{vid.duration}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </section>

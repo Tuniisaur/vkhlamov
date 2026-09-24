@@ -256,4 +256,32 @@ button, a, input, textarea, select {
   animation: skeleton-shimmer 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* ── Animated Loading Dots (only dots animate) ── */
+@keyframes loading-dot-bounce {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
 
+.animate-dot-1 {
+  display: inline-block;
+  animation: loading-dot-bounce 1.2s infinite ease-in-out;
+  animation-delay: 0s;
+}
+
+.animate-dot-2 {
+  display: inline-block;
+  animation: loading-dot-bounce 1.2s infinite ease-in-out;
+  animation-delay: 0.2s;
+}
+
+.animate-dot-3 {
+  display: inline-block;
+  animation: loading-dot-bounce 1.2s infinite ease-in-out;
+  animation-delay: 0.4s;
+}
