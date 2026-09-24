@@ -166,7 +166,7 @@ function StoryCard({
           muted={isAudioMuted}
           loop
           playsInline
-          preload="none"
+          preload="metadata"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${

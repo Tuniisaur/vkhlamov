@@ -523,15 +523,15 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   if (!project) {
     if (isLoading) {
-      return <LogoPreloader minDuration={0.8} maxDuration={2.5} />;
+      return <LogoPreloader minDuration={0.2} maxDuration={0.6} />;
     }
     notFound();
   }
 
   return (
     <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between select-none">
-      {/* Framer Logo Preloader on entering project */}
-      <LogoPreloader key={projectId} isReady={isProjectMediaReady} minDuration={0.8} maxDuration={2.5} />
+      {/* Framer Logo Preloader on entering project - ultra fast crossfade */}
+      <LogoPreloader key={projectId} isReady={isProjectMediaReady} minDuration={0.15} maxDuration={0.5} />
 
       <CustomCursor />
 
@@ -660,7 +660,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               playsInline
               preload="auto"
               onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
+              onLoadedMetadata={() => {
+                handleLoadedMetadata();
+                setIsProjectMediaReady(true);
+              }}
               onLoadedData={() => {
                 setIsProjectMediaReady(true);
                 if (videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {

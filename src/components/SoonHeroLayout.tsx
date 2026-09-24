@@ -256,8 +256,10 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
             loop
             playsInline
             preload="auto"
+            onLoadedMetadata={() => onHeroReady?.()}
             onLoadedData={() => onHeroReady?.()}
             onCanPlay={() => onHeroReady?.()}
+            onPlay={() => onHeroReady?.()}
             className="w-full h-full object-cover"
           />
           {/* Subtle uniform film shading - gently darkens when about or contact info is displayed */}

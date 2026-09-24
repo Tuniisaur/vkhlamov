@@ -25,8 +25,8 @@ interface LogoPreloaderProps {
 
 export default function LogoPreloader({
   isReady = true,
-  minDuration = 0.8,
-  maxDuration = 2.5,
+  minDuration = 0.25,
+  maxDuration = 0.9,
   onComplete,
 }: LogoPreloaderProps) {
   const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">("init");
@@ -64,13 +64,13 @@ export default function LogoPreloader({
     }
   }, [phase, minTimePassed, isReady, maxTimePassed]);
 
-  // 5. When entering "logoOut", wait for animation (700ms) then set "done"
+  // 5. When entering "logoOut", wait for animation (400ms) then set "done"
   useEffect(() => {
     if (phase === "logoOut") {
       const tDone = setTimeout(() => {
         setPhase("done");
         onComplete?.();
-      }, 750);
+      }, 420);
       return () => clearTimeout(tDone);
     }
   }, [phase, onComplete]);
@@ -108,8 +108,8 @@ export default function LogoPreloader({
     bgOpacity = 0;
   }
 
-  const transition = "transform 0.7s cubic-bezier(0.7, 0.2, 0.2, 1), opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
-  const bgTransition = "opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
+  const transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
+  const bgTransition = "opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
   const isInteractive = phase === "init" || phase === "loading";
 
   return (
