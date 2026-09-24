@@ -70,12 +70,6 @@ export default function ManagePage() {
     images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
   const [isUploading, setIsUploading] = useState<string | null>(null);
-  const [r2Info, setR2Info] = useState<{
-    configured: boolean;
-    missing: string[];
-    publicUrlConfigured?: boolean;
-    publicBase?: string;
-  } | null>(null);
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -101,17 +95,6 @@ export default function ManagePage() {
       } catch (err) {
         console.warn("Could not fetch media list:", err);
       }
-
-      // Check R2 status from content endpoint
-      try {
-        const contentRes = await fetch("/api/content");
-        if (contentRes.ok && !ignore) {
-          const contentData = await contentRes.json();
-          if (contentData.r2Status) {
-            setR2Info(contentData.r2Status);
-          }
-        }
-      } catch {}
     };
     load();
     return () => {
@@ -967,39 +950,6 @@ export default function ManagePage() {
           <span className="text-white/30 text-[10px] sm:text-[11px]">
             {saveStatus === "saving" ? "[ salvataggio... ]" : "[ online & synced ]"}
           </span>
-          {r2Info && (
-            <button
-              type="button"
-              onClick={() => {
-                if (!r2Info.configured) {
-                  alert(
-                    `Stato Cloudflare R2: NON CONFIGURATO\n\nVariabili d'ambiente mancanti su Vercel:\n• ${r2Info.missing.join(
-                      "\n• "
-                    )}\n\nCome risolvere:\n1. Vai su Vercel -> Project Settings -> Environment Variables\n2. Inserisci le variabili mancanti\n3. Esegui un Redeploy del progetto.`
-                  );
-                } else if (r2Info.publicUrlConfigured) {
-                  alert(
-                    `Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\n\nDominio pubblico R2:\n${r2Info.publicBase}\n\nIMPORTANTE:\nAssicurati che su Cloudflare (Dashboard -> R2 -> [Tuo Bucket] -> Settings -> Public Access) il sottodominio r2.dev sia impostato su "Allowed" (clicca "Allow Access" e digita "allow").\nSe non è abilitato, Cloudflare bloccherà le immagini con 403 Forbidden.`
-                  );
-                } else {
-                  alert(
-                    `Stato Cloudflare R2: CONNESSO E OPERATIVO ✓\n\nStreaming Proxy: ATTIVO (/api/media/stream/)\nI video e le immagini vengono serviti direttamente da Next.js tramite stream autenticato S3.\n\nConsiglio facoltativo per CDN ultra-veloce:\n1. Nel pannello Cloudflare -> R2 -> [Bucket] -> Settings -> Public Access -> "Allow Access" sul sottodominio r2.dev.\n2. Inserisci la variabile R2_PUBLIC_URL su Vercel con https://pub-xxxxxx.r2.dev`
-                  );
-                }
-              }}
-              className={`cursor-pointer transition-colors text-[10px] sm:text-[11px] ${
-                r2Info.configured
-                  ? "text-emerald-400/90 hover:text-emerald-300 hover:italic"
-                  : "text-amber-400/90 hover:text-amber-300 hover:italic"
-              }`}
-            >
-              {r2Info.configured
-                ? r2Info.publicUrlConfigured
-                  ? "[ R2: CDN connesso ✓ ]"
-                  : "[ R2: proxy attivo ✓ ]"
-                : "[ R2: mancante ⚠ ]"}
-            </button>
-          )}
         </div>
 
         <div className="flex items-center gap-4 sm:gap-6">
@@ -1352,7 +1302,7 @@ export default function ManagePage() {
                   </div>
                 ) : (
                   <div className="p-4 border border-dashed border-white/10 rounded-lg text-white/30 text-[11px]">
-                    Nessun video caricato su Cloudflare R2 / server. Carica un video nella scheda &quot;File&quot; o inserisci l&apos;URL sopra.
+                    Nessun video caricato. Carica un video nella scheda &quot;File&quot; o inserisci l&apos;URL sopra.
                   </div>
                 )}
               </div>
@@ -2022,33 +1972,6 @@ export default function ManagePage() {
             <div className="space-y-4">
               <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
                 <span>{"//"} file video ({activeVideos.length})</span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/media/diagnose");
-                      const data = await res.json();
-                      const lines = [
-                        `STATO CLOUDFLARE R2 & MEDIA:`,
-                        `• Connessione R2: ${data.r2Configured ? "CONFIGURATO ✓" : "MANCANTE ⚠"}`,
-                        `• Bucket: "${data.bucketName || "non impostato"}" (S3: ${data.s3ConnectionSuccess ? "OK ✓" : `ERRORE: ${data.s3Error}`})`,
-                        `• File in R2: ${data.objectsList?.videosCount ?? 0} video, ${data.objectsList?.imagesCount ?? 0} immagini`,
-                        `• R2_PUBLIC_URL: ${data.rawPublicUrl || "(non impostata - streaming proxy attivo)"}`,
-                        data.publicUrlStatus?.tested
-                          ? `• Test URL Pubblico: HTTP ${data.publicUrlStatus.httpStatus} (${data.publicUrlStatus.accessible ? "FUNZIONANTE ✓" : "BLOCCATO 403/404 ⚠"})`
-                          : "",
-                        "",
-                        data.recommendations?.length ? `RACCOMANDAZIONI:\n• ${data.recommendations.join("\n• ")}` : "",
-                      ].filter(Boolean);
-                      alert(lines.join("\n"));
-                    } catch {
-                      alert("Errore durante l'esecuzione del test diagnostico.");
-                    }
-                  }}
-                  className="text-white/60 hover:text-white hover:italic transition-colors cursor-pointer text-[11px]"
-                >
-                  [ 🔍 diagnostica R2 & CDN ]
-                </button>
               </div>
               {activeVideos.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2097,7 +2020,7 @@ export default function ManagePage() {
                 </div>
               ) : (
                 <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
-                  Nessun video caricato su Cloudflare R2. Usa l&apos;area di upload sopra per caricare file video.
+                  Nessun video caricato. Usa l&apos;area di upload sopra per caricare file video.
                 </div>
               )}
             </div>
@@ -2151,7 +2074,7 @@ export default function ManagePage() {
                 </div>
               ) : (
                 <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
-                  Nessuna immagine caricata su Cloudflare R2. Usa l&apos;area di upload sopra per caricare file immagine.
+                  Nessuna immagine caricata. Usa l&apos;area di upload sopra per caricare file immagine.
                 </div>
               )}
             </div>
