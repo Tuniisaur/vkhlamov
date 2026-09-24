@@ -2059,7 +2059,7 @@ export default function ManagePage() {
                           src={vid.path}
                           muted
                           controls
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       </div>
                       <div className="flex items-start justify-between text-xs font-mono gap-2">
@@ -2469,7 +2469,7 @@ export default function ManagePage() {
                       src={resolveMediaUrl(editingProject.videoPreviewUrl)}
                       controls
                       muted
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 </div>
@@ -2608,7 +2608,7 @@ export default function ManagePage() {
                                 controls
                                 preload="metadata"
                                 muted
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                               />
                             </div>
 

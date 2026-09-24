@@ -86,19 +86,32 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState<string | null>(null);
   const [isProjectMediaReady, setIsProjectMediaReady] = useState(false);
+  const [isVertical, setIsVertical] = useState(false);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
 
   // Check if video is already ready/cached
   useEffect(() => {
-    if (videoRef.current && videoRef.current.readyState >= 2) {
+    if (videoRef.current && videoRef.current.readyState >= 1) {
       setIsProjectMediaReady(true);
+      if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
+        setIsVertical(videoRef.current.videoHeight > videoRef.current.videoWidth);
+        setVideoAspectRatio(videoRef.current.videoWidth / videoRef.current.videoHeight);
+      }
     }
   }, [projectId, selectedVideoIndex]);
 
-  // Reset selected video index when navigating to another project
+  // Reset selected video index and vertical state when navigating to another project
   useEffect(() => {
     setSelectedVideoIndex(0);
     setIsProjectMediaReady(false);
+    setIsVertical(false);
+    setVideoAspectRatio(null);
   }, [projectId]);
+
+  useEffect(() => {
+    setIsVertical(false);
+    setVideoAspectRatio(null);
+  }, [selectedVideoIndex]);
 
   // Detect duration for current active video
   useEffect(() => {
@@ -328,15 +341,18 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   };
 
   const handleLoadedMetadata = () => {
-    if (
-      videoRef.current &&
-      videoRef.current.duration &&
-      !isNaN(videoRef.current.duration) &&
-      isFinite(videoRef.current.duration)
-    ) {
-      const durStr = formatVideoDuration(videoRef.current.duration);
-      if (durStr && durStr !== "00:00") {
-        setDetectedDuration(durStr);
+    if (videoRef.current) {
+      const { videoWidth, videoHeight, duration } = videoRef.current;
+      if (videoWidth && videoHeight) {
+        const vertical = videoHeight > videoWidth;
+        setIsVertical(vertical);
+        setVideoAspectRatio(videoWidth / videoHeight);
+      }
+      if (duration && !isNaN(duration) && isFinite(duration)) {
+        const durStr = formatVideoDuration(duration);
+        if (durStr && durStr !== "00:00") {
+          setDetectedDuration(durStr);
+        }
       }
     }
   };
@@ -513,107 +529,126 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }
 
   return (
-    <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between p-3 sm:p-6 md:p-8 select-none">
+    <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between select-none">
       {/* Framer Logo Preloader on entering project */}
       <LogoPreloader key={projectId} isReady={isProjectMediaReady} minDuration={0.8} maxDuration={2.5} />
 
       <CustomCursor />
 
-      {/* ── 1. Top Header: VKHLAMOV + Menu Directly Underneath (IDENTICAL TO HOME) ── */}
-      <header className="relative z-20 w-full hero-header-top flex flex-col items-center text-center">
-        {/* Top Sound Toggle Floating in Top Right Corner */}
-        <div className="w-full flex justify-end px-2 sm:px-8 mb-1">
-          <button
-            onClick={toggleSound}
-            className="min-h-[40px] px-2 text-[11px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer flex items-center"
-          >
-            {isMuted ? "[ sound on ]" : "[ sound off ]"}
-          </button>
-        </div>
+      {/* ── 1. Top Cinema Header: Sleek, compact and non-intrusive ── */}
+      <header className="sticky top-0 z-30 w-full bg-black/85 backdrop-blur-xl border-b border-white/[0.08] px-3 sm:px-8 py-2.5 sm:py-3 safe-top">
+        <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+          {/* Left: Back to projects */}
+          <div className="flex-1 flex items-center justify-start min-w-0">
+            <Link
+              href="/?tab=projects"
+              className="min-h-[36px] flex items-center gap-1 font-mono text-[11px] sm:text-xs text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:-translate-x-1 cursor-pointer truncate"
+            >
+              <span className="hidden xs:inline">[</span> ← <span className="hidden sm:inline">back to </span>projects <span className="hidden xs:inline">]</span>
+            </Link>
+          </div>
 
-        {/* VALERIY KHLAMOV Monumental Title - Clean static typography */}
-        <Link
-          href="/"
-          className="cursor-pointer text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-title-custom uppercase text-white leading-none select-none text-center tracking-tight"
-        >
-          VALERIY KHLAMOV
-        </Link>
+          {/* Center: VALERIY KHLAMOV Title + Menu */}
+          <div className="flex flex-col items-center text-center shrink-0">
+            <Link
+              href="/"
+              className="cursor-pointer text-base sm:text-xl md:text-2xl font-title-custom uppercase text-white leading-none select-none tracking-tight hover:scale-[1.01] transition-transform"
+            >
+              VALERIY KHLAMOV
+            </Link>
+            <nav className="mt-1 flex items-center justify-center gap-4 sm:gap-8 text-[11px] sm:text-xs font-light lowercase tracking-wider text-white">
+              <Link
+                href="/#projects"
+                className="italic font-medium underline underline-offset-4 opacity-100 transition-all duration-300 cursor-pointer"
+              >
+                projects
+              </Link>
+              <Link
+                href="/?tab=about"
+                className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 cursor-pointer"
+              >
+                about
+              </Link>
+              <Link
+                href="/?tab=contact"
+                className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 cursor-pointer"
+              >
+                contact
+              </Link>
+            </nav>
+          </div>
 
-        {/* Menu Directly Underneath the Title: projects, about, contact */}
-        <nav className="mt-3.5 sm:mt-6 flex items-center justify-center gap-6 sm:gap-14 text-sm sm:text-base md:text-lg font-light lowercase tracking-wider text-white">
-          <Link
-            href="/#projects"
-            className="italic font-medium underline underline-offset-8 opacity-100 transition-all duration-300 transform hover:-translate-y-0.5 scale-105 cursor-pointer min-h-[44px] flex items-center"
-          >
-            projects
-          </Link>
-          <Link
-            href="/?tab=about"
-            className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer min-h-[44px] flex items-center"
-          >
-            about
-          </Link>
-          <Link
-            href="/?tab=contact"
-            className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer min-h-[44px] flex items-center"
-          >
-            contact
-          </Link>
-        </nav>
-
-        {/* Minimal Sub-navigation / Back link with Slide Motion */}
-        <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 text-xs font-mono text-white/50 tracking-wider px-2">
-          <Link
-            href="/?tab=projects"
-            className="min-h-[36px] flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:-translate-x-1"
-          >
-            [ ← back to projects ]
-          </Link>
-          <span className="text-white/20 hidden sm:inline">•</span>
-          <span className="text-white/70 uppercase transition-colors duration-300 truncate max-w-full sm:max-w-none text-center">
-            0{currentIndex + 1} {"//"} {project.title.en || project.title.it}
-          </span>
+          {/* Right: Sound Toggle Button */}
+          <div className="flex-1 flex items-center justify-end">
+            <button
+              onClick={toggleSound}
+              className="min-h-[36px] px-2 text-[11px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer flex items-center"
+            >
+              {isMuted ? "[ sound on ]" : "[ sound off ]"}
+            </button>
+          </div>
         </div>
       </header>
 
       {/* ── 2. MAIN CONTENT: IN PRIMO PIANO IL VIDEO + SOTTO LE FOTO COLLEGATE ── */}
-      <main className="relative z-10 w-full max-w-6xl mx-auto my-auto py-6 sm:py-12 space-y-12 sm:space-y-24">
+      <main className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 md:px-8 pt-3 sm:pt-6 pb-12 sm:pb-24 space-y-12 sm:space-y-24">
         
         {/* ── SECTION 1: IN PRIMO PIANO IL VIDEO (Widescreen Cinema Player, No Boxes, No Heavy Borders) ── */}
-        <section className="space-y-4 sm:space-y-6 animate-cinema-fade">
-          {/* Multi-video Switcher Tabs (when more than 1 main video exists) */}
-          {allVideos.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2 font-mono text-xs pb-1">
-              <span className="text-white/40 uppercase tracking-widest text-[11px] mr-1">
-                {"//"} video ({allVideos.length}):
+        <section className="space-y-3 sm:space-y-4 animate-cinema-fade">
+          {/* Top Bar above Video: Project Index/Title on Left + Multi-video Switcher on Right */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono tracking-wider pt-1">
+            <div className="flex items-center gap-2 text-white/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span className="uppercase font-medium">
+                0{currentIndex + 1} {"//"} {project.title.en || project.title.it}
               </span>
-              {allVideos.map((vid, vIdx) => {
-                const isSelected = selectedVideoIndex === vIdx;
-                return (
-                  <button
-                    key={vIdx}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVideoIndex(vIdx);
-                      setIsPlaying(true);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg border font-mono text-xs transition-all cursor-pointer flex items-center gap-2 ${
-                      isSelected
-                        ? "border-[#e0fe10] text-[#e0fe10] bg-[#e0fe10]/10 font-bold shadow-[0_0_15px_rgba(224,254,16,0.15)]"
-                        : "border-white/10 text-white/60 hover:text-white hover:border-white/30 bg-black/40"
-                    }`}
-                  >
-                    <span>[ 0{vIdx + 1} // {vid.title} ]</span>
-                    {vid.duration && (
-                      <span className="text-[10px] opacity-60 font-normal">{vid.duration}</span>
-                    )}
-                  </button>
-                );
-              })}
             </div>
-          )}
 
-          <div className="relative w-full aspect-video bg-black overflow-hidden rounded-lg group">
+            {/* Multi-video Switcher Tabs (when more than 1 main video exists) */}
+            {allVideos.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40 uppercase tracking-widest text-[10px] hidden sm:inline mr-1">
+                  {"//"} video ({allVideos.length}):
+                </span>
+                {allVideos.map((vid, vIdx) => {
+                  const isSelected = selectedVideoIndex === vIdx;
+                  return (
+                    <button
+                      key={vIdx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVideoIndex(vIdx);
+                        setIsPlaying(true);
+                      }}
+                      className={`px-2.5 py-1 rounded-md border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? "border-white text-white bg-white/10 font-bold shadow-[0_0_12px_rgba(255,255,255,0.12)]"
+                          : "border-white/10 text-white/60 hover:text-white hover:border-white/30 bg-black/40"
+                      }`}
+                    >
+                      <span>0{vIdx + 1} // {vid.title}</span>
+                      {vid.duration && (
+                        <span className="text-[10px] opacity-60 font-normal hidden md:inline">{vid.duration}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`relative mx-auto bg-black overflow-hidden rounded-lg group shadow-[0_20px_60px_rgba(0,0,0,0.85)] border border-white/[0.04] transition-all duration-500 ease-out flex items-center justify-center ${
+              isVertical
+                ? "aspect-[9/16] w-auto max-h-[calc(100dvh-200px)] sm:max-h-[calc(100dvh-220px)] max-w-[min(100%,480px)]"
+                : "w-full aspect-video max-h-[calc(100dvh-200px)] sm:max-h-[calc(100dvh-220px)]"
+            }`}
+            style={
+              isVertical && videoAspectRatio
+                ? { aspectRatio: `${videoAspectRatio}` }
+                : undefined
+            }
+          >
             <video
               key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
@@ -625,12 +660,21 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               preload="auto"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
-              onLoadedData={() => setIsProjectMediaReady(true)}
+              onLoadedData={() => {
+                setIsProjectMediaReady(true);
+                if (videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {
+                  const { videoWidth, videoHeight } = videoRef.current;
+                  setIsVertical(videoHeight > videoWidth);
+                  setVideoAspectRatio(videoWidth / videoHeight);
+                }
+              }}
               onCanPlay={() => setIsProjectMediaReady(true)}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onClick={togglePlay}
-              className="w-full h-full object-cover cursor-pointer transition-transform duration-700 ease-out group-hover:scale-[1.005]"
+              className={`w-full h-full cursor-pointer transition-transform duration-700 ease-out group-hover:scale-[1.005] ${
+                isVertical ? "object-contain" : "object-cover"
+              }`}
             />
 
             {/* Subtle Pause Overlay indicator with Smooth Fade */}
@@ -647,140 +691,142 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </div>
 
           {/* Minimal Controls Row in Monospace Text with Smooth Transitions */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4 text-xs font-mono text-white/60 pt-1 border-b border-white/10 pb-3 sm:pb-4">
-            {/* On Mobile: Row 1 is the video timecode */}
-            <div className="sm:hidden flex items-center justify-center">
-              <span className="text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
-            </div>
-
-            {/* Controls Buttons: on mobile Row 2 with pause, sound, fullscreen; on desktop left side */}
-            <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 w-full sm:w-auto">
-              <div className="flex items-center gap-3 sm:gap-6">
-                <button
-                  onClick={togglePlay}
-                  className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                >
-                  {isPlaying ? "[ pause ]" : "[ play ]"}
-                </button>
-                <button
-                  onClick={toggleSound}
-                  className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                >
-                  {isMuted ? "[ sound on ]" : "[ sound off ]"}
-                </button>
-                {/* On Desktop: timecode is inline */}
-                <span className="hidden sm:inline text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
+          <div className={`mx-auto transition-all duration-500 space-y-4 ${isVertical ? "max-w-2xl" : "w-full"}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4 text-xs font-mono text-white/60 pt-1 border-b border-white/10 pb-3 sm:pb-4">
+              {/* On Mobile: Row 1 is the video timecode */}
+              <div className="sm:hidden flex items-center justify-center">
+                <span className="text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
               </div>
 
-              {/* Mobile Fullscreen Button (Row 2 right) */}
-              <div className="flex items-center sm:hidden">
+              {/* Controls Buttons: on mobile Row 2 with pause, sound, fullscreen; on desktop left side */}
+              <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 w-full sm:w-auto">
+                <div className="flex items-center gap-3 sm:gap-6">
+                  <button
+                    onClick={togglePlay}
+                    className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  >
+                    {isPlaying ? "[ pause ]" : "[ play ]"}
+                  </button>
+                  <button
+                    onClick={toggleSound}
+                    className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  >
+                    {isMuted ? "[ sound on ]" : "[ sound off ]"}
+                  </button>
+                  {/* On Desktop: timecode is inline */}
+                  <span className="hidden sm:inline text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
+                </div>
+
+                {/* Mobile Fullscreen Button (Row 2 right) */}
+                <div className="flex items-center sm:hidden">
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    className="min-h-[44px] px-2 flex items-center hover:text-white hover:italic transition-all duration-300 transform active:scale-95 cursor-pointer touch-manipulation select-none"
+                  >
+                    {isFullscreen ? "[ exit fullscreen ]" : "[ fullscreen ]"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop Fullscreen Button */}
+              <div className="hidden sm:flex items-center gap-4 sm:gap-6">
                 <button
                   type="button"
                   onClick={toggleFullscreen}
                   aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                  className="min-h-[44px] px-2 flex items-center hover:text-white hover:italic transition-all duration-300 transform active:scale-95 cursor-pointer touch-manipulation select-none"
+                  className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer"
                 >
                   {isFullscreen ? "[ exit fullscreen ]" : "[ fullscreen ]"}
                 </button>
               </div>
             </div>
 
-            {/* Desktop Fullscreen Button */}
-            <div className="hidden sm:flex items-center gap-4 sm:gap-6">
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                {isFullscreen ? "[ exit fullscreen ]" : "[ fullscreen ]"}
-              </button>
-            </div>
-          </div>
-
-          {/* Minimal Editorial Details (Zero Cards, Pure Typography) */}
-          <div className="pt-2 sm:pt-4 max-w-4xl space-y-2 sm:space-y-3">
-            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
-              {project.title.en || project.title.it}
-            </h2>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
-              <span>{project.year}</span>
-              {project.location && (
-                <>
-                  <span>•</span>
-                  <span className="text-white/80">{project.location}</span>
-                </>
-              )}
-              {(detectedDuration || project.duration) && (
-                <>
-                  <span>•</span>
-                  <span>{detectedDuration || project.duration}</span>
-                </>
-              )}
-            </div>
-            {project.subtitle && (project.subtitle.en || project.subtitle.it) && (
-              <p className="text-sm sm:text-base text-white/70 font-light tracking-wide pt-1">
-                {project.subtitle.en || project.subtitle.it}
-              </p>
-            )}
-
-            {/* Multi-video Visual Grid (when more than 1 main video exists) */}
-            {allVideos.length > 1 && (
-              <div className="pt-6 sm:pt-8 border-t border-white/10 space-y-3">
-                <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
-                  <span>{"//"} tutti i video del film ({allVideos.length})</span>
-                  <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
-                    seleziona per riprodurre nel player
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                  {allVideos.map((vid, vIdx) => {
-                    const isSelected = selectedVideoIndex === vIdx;
-                    return (
-                      <div
-                        key={vIdx}
-                        onClick={() => {
-                          setSelectedVideoIndex(vIdx);
-                          setIsPlaying(true);
-                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }}
-                        className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 ${
-                          isSelected
-                            ? "border-[#e0fe10] bg-[#e0fe10]/5 shadow-[0_0_20px_rgba(224,254,16,0.12)]"
-                            : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
-                        }`}
-                      >
-                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
-                          <video
-                            src={resolveMediaUrl(vid.url)}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            className="w-full h-full object-cover pointer-events-none"
-                          />
-                          <div className="absolute top-1.5 left-1.5 font-mono text-[10px] bg-black/80 px-1.5 py-0.5 rounded text-white/80 border border-white/10">
-                            0{vIdx + 1}
-                          </div>
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center font-mono text-xs text-[#e0fe10] font-bold">
-                              [ in riproduzione ]
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between text-xs font-mono px-0.5">
-                          <span className={`truncate font-medium ${isSelected ? "text-[#e0fe10]" : "text-white"}`}>
-                            {vid.title}
-                          </span>
-                          {vid.duration && (
-                            <span className="text-white/40 text-[10px] shrink-0 ml-2">{vid.duration}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Minimal Editorial Details (Zero Cards, Pure Typography) */}
+            <div className="pt-2 sm:pt-4 max-w-4xl space-y-2 sm:space-y-3">
+              <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
+                {project.title.en || project.title.it}
+              </h2>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
+                <span>{project.year}</span>
+                {project.location && (
+                  <>
+                    <span>•</span>
+                    <span className="text-white/80">{project.location}</span>
+                  </>
+                )}
+                {(detectedDuration || project.duration) && (
+                  <>
+                    <span>•</span>
+                    <span>{detectedDuration || project.duration}</span>
+                  </>
+                )}
               </div>
-            )}
+              {project.subtitle && (project.subtitle.en || project.subtitle.it) && (
+                <p className="text-sm sm:text-base text-white/70 font-light tracking-wide pt-1">
+                  {project.subtitle.en || project.subtitle.it}
+                </p>
+              )}
+
+              {/* Multi-video Visual Grid (when more than 1 main video exists) */}
+              {allVideos.length > 1 && (
+                <div className="pt-6 sm:pt-8 border-t border-white/10 space-y-3">
+                  <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
+                    <span>{"//"} tutti i video del film ({allVideos.length})</span>
+                    <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
+                      seleziona per riprodurre nel player
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                    {allVideos.map((vid, vIdx) => {
+                      const isSelected = selectedVideoIndex === vIdx;
+                      return (
+                        <div
+                          key={vIdx}
+                          onClick={() => {
+                            setSelectedVideoIndex(vIdx);
+                            setIsPlaying(true);
+                            videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                          }}
+                          className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 ${
+                            isSelected
+                              ? "border-white/70 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
+                              : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
+                          }`}
+                        >
+                          <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
+                            <video
+                              src={resolveMediaUrl(vid.url)}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="w-full h-full object-contain pointer-events-none"
+                            />
+                            <div className="absolute top-1.5 left-1.5 font-mono text-[10px] bg-black/80 px-1.5 py-0.5 rounded text-white/80 border border-white/10">
+                              0{vIdx + 1}
+                            </div>
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center font-mono text-xs text-white font-bold">
+                                [ in riproduzione ]
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-xs font-mono px-0.5">
+                            <span className={`truncate font-medium ${isSelected ? "text-white" : "text-white/60 group-hover:text-white"}`}>
+                              {vid.title}
+                            </span>
+                            {vid.duration && (
+                              <span className="text-white/40 text-[10px] shrink-0 ml-2">{vid.duration}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

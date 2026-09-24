@@ -68,6 +68,7 @@ function StoryCard({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isVertical, setIsVertical] = useState(false);
   const playAttemptRef = useRef<boolean>(false);
 
   const handleMouseEnter = () => {
@@ -108,6 +109,22 @@ function StoryCard({
     }
   };
 
+  const handleLoadedMetadata = () => {
+    if (videoRef.current && videoRef.current.videoHeight && videoRef.current.videoWidth) {
+      if (videoRef.current.videoHeight > videoRef.current.videoWidth) {
+        setIsVertical(true);
+      }
+    }
+  };
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    setIsImageLoaded(true);
+    const img = e.currentTarget;
+    if (img.naturalHeight && img.naturalWidth && img.naturalHeight > img.naturalWidth) {
+      setIsVertical(true);
+    }
+  };
+
   const handleAudioToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -126,8 +143,10 @@ function StoryCard({
       onMouseLeave={handleMouseLeave}
       className="group flex flex-col cursor-pointer select-none"
     >
-      {/* 16:9 Video Box with Rounded Corners (No border) */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+      {/* Video Box with Rounded Corners (Adapts to vertical 9:16 or horizontal 16:9) */}
+      <div className={`relative w-full overflow-hidden rounded-lg bg-black transition-[aspect-ratio] duration-500 flex items-center justify-center ${
+        isVertical ? "aspect-[9/16]" : "aspect-video"
+      }`}>
         {/* Skeleton while poster is loading */}
         {!isImageLoaded && (
           <div className="absolute inset-0 bg-[#0e0e11] overflow-hidden">
@@ -144,7 +163,10 @@ function StoryCard({
           playsInline
           preload="auto"
           onTimeUpdate={handleTimeUpdate}
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none"
+          onLoadedMetadata={handleLoadedMetadata}
+          className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
+            isVertical ? "object-contain" : "object-cover"
+          }`}
         />
 
         {/* Poster Image: Always shows before hover and returns when mouse leaves */}
@@ -159,10 +181,12 @@ function StoryCard({
               alt={item.title}
               fill
               unoptimized
-              onLoad={() => setIsImageLoaded(true)}
+              onLoad={handleImageLoad}
               onError={() => setIsImageLoaded(true)}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
+              className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] ${
+                isVertical ? "object-contain" : "object-cover"
+              }`}
             />
           )}
         </div>

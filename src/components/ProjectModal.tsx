@@ -16,6 +16,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isVertical, setIsVertical] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,7 +63,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
         {/* Top Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.08] flex items-center justify-between font-mono text-xs bg-black/40">
           <div className="flex items-center gap-2.5 min-w-0 pr-2">
-            <span className="w-2 h-2 rounded-full bg-[#e0fe10] animate-pulse shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
             <span className="text-white font-bold tracking-wider uppercase truncate max-w-[200px] sm:max-w-none">
               {project.title.en || project.title.it}
             </span>
@@ -76,7 +77,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
               title={isMuted ? t.unmute : t.mute}
               aria-label={isMuted ? t.unmute : t.mute}
             >
-              {isMuted ? <VolumeX className="w-4 h-4 text-neutral-400" /> : <Volume2 className="w-4 h-4 text-[#e0fe10]" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-neutral-400" /> : <Volume2 className="w-4 h-4 text-white" />}
             </button>
 
             <button
@@ -96,7 +97,9 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
         {/* Scrollable Content */}
         <div className="overflow-y-auto mobile-touch-scroll p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Main Video Viewport */}
-          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
+          <div className={`relative rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-300 flex items-center justify-center ${
+            isVertical ? "aspect-[9/16] max-h-[68vh] w-auto max-w-sm" : "aspect-video w-full"
+          }`}>
             <video
               ref={videoRef}
               src={resolveMediaUrl(project.fullVideoUrl || project.videoPreviewUrl)}
@@ -104,7 +107,13 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
               controls
               autoPlay
               playsInline
-              className="w-full h-full object-cover"
+              onLoadedMetadata={(e) => {
+                const el = e.currentTarget;
+                if (el.videoHeight && el.videoWidth && el.videoHeight > el.videoWidth) {
+                  setIsVertical(true);
+                }
+              }}
+              className={`w-full h-full ${isVertical ? "object-contain" : "object-cover"}`}
             />
           </div>
 
@@ -113,7 +122,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
             <div className="p-2.5 sm:p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
               <span className="text-neutral-500 block text-[9px] uppercase tracking-wider">{t.maxSpeed}</span>
               <span className="text-white font-bold text-sm flex items-center gap-1.5 mt-0.5">
-                <Gauge className="w-3.5 h-3.5 text-[#e0fe10]" />
+                <Gauge className="w-3.5 h-3.5 text-neutral-400" />
                 {project.telemetry.speed}
               </span>
             </div>
@@ -127,7 +136,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
             </div>
             <div className="p-2.5 sm:p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
               <span className="text-neutral-500 block text-[9px] uppercase tracking-wider">{t.trackSector}</span>
-              <span className="text-[#e0fe10] font-bold text-sm mt-0.5 block truncate">{project.telemetry.track}</span>
+              <span className="text-white font-bold text-sm mt-0.5 block truncate">{project.telemetry.track}</span>
             </div>
           </div>
 
