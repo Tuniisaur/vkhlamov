@@ -1,10 +1,38 @@
 import { getR2PublicBase } from "./r2";
 
+let dynamicMediaBase = "";
+
+if (typeof window !== "undefined") {
+  try {
+    const cached = localStorage.getItem("valerio_studio_media_base");
+    if (cached) {
+      dynamicMediaBase = cached.trim().replace(/\/+$/, "");
+    }
+  } catch {}
+}
+
+export function setDynamicMediaBase(base?: string | null) {
+  if (!base) return;
+  const cleaned = base.trim().replace(/\/+$/, "");
+  if (cleaned && !cleaned.includes("r2.cloudflarestorage.com")) {
+    dynamicMediaBase = cleaned;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("valerio_studio_media_base", cleaned);
+      } catch {}
+    }
+  }
+}
+
+export function getDynamicMediaBase(): string {
+  return dynamicMediaBase;
+}
+
 /**
  * Resolves any media path (relative /images/..., /videos/..., or R2 key)
  * to a fully qualified, publicly accessible CDN URL or stream proxy URL.
  * Works both server-side (process.env.R2_PUBLIC_URL) and client-side
- * (NEXT_PUBLIC_R2_PUBLIC_URL) automatically.
+ * (NEXT_PUBLIC_R2_PUBLIC_URL or dynamic CDN base) automatically.
  */
 export function resolveMediaUrl(url?: string | null): string {
   if (!url) return "";
@@ -16,27 +44,38 @@ export function resolveMediaUrl(url?: string | null): string {
     return trimmed;
   }
 
-  // Already a streaming proxy URL
+  const nextPublicBase =
+    typeof window !== "undefined"
+      ? (process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "").trim().replace(/\/+$/, "")
+      : "";
+
+  const serverBase = typeof window === "undefined" ? getR2PublicBase() : "";
+
+  const activeBase =
+    (dynamicMediaBase && !dynamicMediaBase.includes("r2.cloudflarestorage.com")
+      ? dynamicMediaBase
+      : "") ||
+    (nextPublicBase && !nextPublicBase.includes("r2.cloudflarestorage.com")
+      ? nextPublicBase
+      : "") ||
+    (serverBase && !serverBase.includes("r2.cloudflarestorage.com")
+      ? serverBase
+      : "");
+
+  // If already a streaming proxy URL, redirect directly to CDN if activeBase is available
   if (trimmed.startsWith("/api/media/stream/")) {
+    if (activeBase) {
+      const subKey = trimmed.replace(/^\/api\/media\/stream\//, "").replace(/^\/+/, "");
+      return `${activeBase}/${subKey}`;
+    }
     return trimmed;
   }
 
   // Clean relative path: strip leading slashes
   const cleanKey = trimmed.replace(/^\/+/, "");
 
-  // Client-side: use NEXT_PUBLIC_R2_PUBLIC_URL if available
-  const nextPublicBase =
-    typeof window !== "undefined"
-      ? (process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "").trim().replace(/\/+$/, "")
-      : "";
-  if (nextPublicBase && !nextPublicBase.includes("r2.cloudflarestorage.com")) {
-    return `${nextPublicBase}/${cleanKey}`;
-  }
-
-  // Server-side: use R2_PUBLIC_URL via getR2PublicBase()
-  const publicBase = getR2PublicBase();
-  if (publicBase) {
-    return `${publicBase}/${cleanKey}`;
+  if (activeBase) {
+    return `${activeBase}/${cleanKey}`;
   }
 
   // Fallback to streaming proxy

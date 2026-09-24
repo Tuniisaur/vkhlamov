@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
-import { getR2Client, getR2BucketName, isR2Configured } from "@/utils/r2";
+import { getR2Client, getR2BucketName, isR2Configured, getR2PublicBase } from "@/utils/r2";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 export async function GET(
@@ -16,6 +16,12 @@ export async function GET(
 
   if (!isR2Configured() || !fullKey) {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  // 1. Direct 307 redirect to Cloudflare global CDN edge (ultra-fast, zero serverless proxy bottleneck)
+  const publicBase = getR2PublicBase();
+  if (publicBase && !publicBase.includes("r2.cloudflarestorage.com")) {
+    return NextResponse.redirect(`${publicBase}/${fullKey}`, 307);
   }
 
   try {

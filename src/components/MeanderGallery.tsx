@@ -77,19 +77,24 @@ function StoryCard({
     setIsPlaying(true);
     playAttemptRef.current = true;
 
-    // preload="auto" ensures browser has already buffered before hover.
-    // readyState >= 2 (HAVE_CURRENT_DATA) is enough to start playing.
+    if (video.preload !== "auto") {
+      video.preload = "auto";
+    }
+
     if (video.readyState >= 2) {
       video.play().catch(() => {});
       return;
     }
 
-    // Fallback: wait for canplay on slow connections
     const tryPlay = () => {
       if (!playAttemptRef.current) return;
       video.play().catch(() => {});
     };
     video.addEventListener("canplay", tryPlay, { once: true });
+
+    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0) {
+      video.load();
+    }
   };
 
   const handleMouseLeave = () => {
@@ -161,7 +166,7 @@ function StoryCard({
           muted={isAudioMuted}
           loop
           playsInline
-          preload="auto"
+          preload="none"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
@@ -180,7 +185,6 @@ function StoryCard({
               src={resolveMediaUrl(item.poster)}
               alt={item.title}
               fill
-              unoptimized
               onLoad={handleImageLoad}
               onError={() => setIsImageLoaded(true)}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

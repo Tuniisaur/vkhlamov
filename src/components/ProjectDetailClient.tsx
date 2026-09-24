@@ -801,7 +801,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                               src={resolveMediaUrl(vid.url)}
                               muted
                               playsInline
-                              preload="metadata"
+                              preload="none"
                               className="w-full h-full object-contain pointer-events-none"
                             />
                             <div className="absolute top-1.5 left-1.5 font-mono text-[10px] bg-black/80 px-1.5 py-0.5 rounded text-white/80 border border-white/10">
@@ -851,7 +851,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   src={resolveMediaUrl(still.url)}
                   alt=""
                   fill
-                  unoptimized
+                  loading="lazy"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
                 />

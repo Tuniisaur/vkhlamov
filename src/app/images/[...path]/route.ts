@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Readable } from "stream";
 import fs from "fs/promises";
 import path from "path";
-import { getR2Client, getR2BucketName, isR2Configured } from "@/utils/r2";
+import { getR2Client, getR2BucketName, isR2Configured, getR2PublicBase } from "@/utils/r2";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 export async function GET(
@@ -41,6 +41,11 @@ export async function GET(
 
   // 2. Fallback to Cloudflare R2 if configured
   if (isR2Configured()) {
+    const publicBase = getR2PublicBase();
+    if (publicBase && !publicBase.includes("r2.cloudflarestorage.com")) {
+      const targetKey = filename.startsWith("images/") ? filename : `images/${filename}`;
+      return NextResponse.redirect(`${publicBase}/${targetKey}`, 307);
+    }
     const s3 = getR2Client();
     const bucket = getR2BucketName();
 

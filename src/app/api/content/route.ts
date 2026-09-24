@@ -91,6 +91,7 @@ const DATA_FILE_PATH = path.join(process.cwd(), "src", "data", "site-content.jso
 
 export async function GET() {
   const r2Status = getR2Status();
+  const mediaBaseUrl = r2Status.publicBase || "";
 
   try {
     // 1. If Cloudflare R2 is configured, load content from R2
@@ -98,7 +99,7 @@ export async function GET() {
       try {
         const r2Data = await getR2Content<SiteDataPayload>("site-content.json");
         if (r2Data && Array.isArray(r2Data.projects)) {
-          return NextResponse.json({ ...r2Data, r2Status });
+          return NextResponse.json({ ...r2Data, r2Status, mediaBaseUrl });
         }
       } catch (r2Err) {
         console.warn("Could not read site-content from R2, falling back to local:", r2Err);
@@ -114,7 +115,7 @@ export async function GET() {
     if (fileExists) {
       const raw = await fs.readFile(DATA_FILE_PATH, "utf-8");
       const parsed = JSON.parse(raw);
-      return NextResponse.json({ ...parsed, r2Status });
+      return NextResponse.json({ ...parsed, r2Status, mediaBaseUrl });
     }
 
     // Fallback: return default data
@@ -124,7 +125,7 @@ export async function GET() {
       lastUpdated: new Date().toISOString(),
     };
 
-    return NextResponse.json({ ...initialData, r2Status });
+    return NextResponse.json({ ...initialData, r2Status, mediaBaseUrl });
   } catch (err: unknown) {
     console.error("Error reading site content:", err);
     return NextResponse.json(
@@ -133,6 +134,7 @@ export async function GET() {
         settings: DEFAULT_SETTINGS,
         lastUpdated: new Date().toISOString(),
         r2Status,
+        mediaBaseUrl,
       },
       { status: 200 }
     );

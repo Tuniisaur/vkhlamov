@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { LOCALIZED_PROJECTS, LocalizedProject } from "@/data/translations";
+import { setDynamicMediaBase } from "@/utils/mediaUrl";
 
 export interface SocialChannel {
   id: string;
@@ -142,6 +143,12 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
+        if (data.mediaBaseUrl) {
+          setDynamicMediaBase(data.mediaBaseUrl);
+        } else if (data.r2Status?.publicBase) {
+          setDynamicMediaBase(data.r2Status.publicBase);
+        }
+
         // Keep local cache synced
         if (typeof window !== "undefined") {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
@@ -164,6 +171,11 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
                   ...(parsed.settings.about || {}),
                 },
               }));
+            }
+            if (parsed.mediaBaseUrl) {
+              setDynamicMediaBase(parsed.mediaBaseUrl);
+            } else if (parsed.r2Status?.publicBase) {
+              setDynamicMediaBase(parsed.r2Status.publicBase);
             }
           }
         }
