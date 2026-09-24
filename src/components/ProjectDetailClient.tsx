@@ -535,52 +535,48 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
       <CustomCursor />
 
-      {/* ── 1. Top Cinema Header: Sleek, compact and non-intrusive ── */}
-      <header className="sticky top-0 z-30 w-full bg-black/85 backdrop-blur-xl border-b border-white/[0.08] px-3 sm:px-8 py-2.5 sm:py-3 safe-top">
-        <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left spacer so center stays perfectly centered */}
-          <div className="flex-1 flex items-center justify-start min-w-0" />
-
-          {/* Center: VALERIY KHLAMOV Title + Menu */}
-          <div className="flex flex-col items-center text-center shrink-0">
-            <Link
-              href="/"
-              className="cursor-pointer text-base sm:text-xl md:text-2xl font-title-custom uppercase text-white leading-none select-none tracking-tight hover:scale-[1.01] transition-transform"
-            >
-              VALERIY KHLAMOV
-            </Link>
-            <nav className="mt-1 flex items-center justify-center gap-4 sm:gap-8 text-[11px] sm:text-xs font-light lowercase tracking-wider text-white">
-              <Link
-                href="/#projects"
-                className="italic font-medium underline underline-offset-4 opacity-100 transition-all duration-300 cursor-pointer"
-              >
-                projects
-              </Link>
-              <Link
-                href="/?tab=about"
-                className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 cursor-pointer"
-              >
-                about
-              </Link>
-              <Link
-                href="/?tab=contact"
-                className="opacity-70 hover:opacity-100 hover:italic transition-all duration-300 cursor-pointer"
-              >
-                contact
-              </Link>
-            </nav>
-          </div>
-
-          {/* Right: Sound Toggle Button */}
-          <div className="flex-1 flex items-center justify-end">
-            <button
-              onClick={toggleSound}
-              className="min-h-[36px] px-2 text-[11px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer flex items-center"
-            >
-              {isMuted ? "[ sound on ]" : "[ sound off ]"}
-            </button>
-          </div>
+      {/* ── 1. Top Cinema Header: Exact same dimensions, padding, typography and layout as homepage projects section ── */}
+      <header className="sticky top-0 left-0 right-0 z-50 w-full px-3 sm:px-8 flex flex-col items-center text-center pointer-events-auto select-none hero-header-scrolled pb-2 sm:pb-2.5 bg-black/75 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.7)] transition-all duration-500 ease-out">
+        {/* Top Sound Toggle Positioned on the Right without taking vertical flow */}
+        <div className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-10 flex items-center">
+          <button
+            onClick={toggleSound}
+            aria-label={isMuted ? "Sound on" : "Sound off"}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[10px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform active:scale-95 sm:hover:scale-105 cursor-pointer"
+          >
+            {isMuted ? "[ sound on ]" : "[ sound off ]"}
+          </button>
         </div>
+
+        {/* VALERIY KHLAMOV Title - Identical size to projects section header */}
+        <Link
+          href="/"
+          className="cursor-pointer font-title-custom uppercase text-white leading-none select-none text-center transform transition-all duration-500 ease-out hover:scale-[1.01] px-2 text-lg sm:text-xl md:text-2xl"
+        >
+          VALERIY KHLAMOV
+        </Link>
+
+        {/* ── Menu Directly Underneath the Title: projects, about, contact ── */}
+        <nav className="flex items-center justify-center font-light lowercase tracking-wider text-white transition-all duration-500 ease-out mt-1 sm:mt-1.5 gap-4 sm:gap-10 text-[11px] sm:text-sm">
+          <Link
+            href="/#projects"
+            className="py-1.5 px-2 transition-all duration-300 ease-out cursor-pointer transform hover:-translate-y-0.5 italic font-medium underline underline-offset-8 opacity-100 scale-105"
+          >
+            projects
+          </Link>
+          <Link
+            href="/?tab=about"
+            className="py-1.5 px-2 transition-all duration-300 ease-out cursor-pointer transform hover:-translate-y-0.5 opacity-70 hover:opacity-100 hover:italic"
+          >
+            about
+          </Link>
+          <Link
+            href="/?tab=contact"
+            className="py-1.5 px-2 transition-all duration-300 ease-out cursor-pointer transform hover:-translate-y-0.5 opacity-70 hover:opacity-100 hover:italic"
+          >
+            contact
+          </Link>
+        </nav>
       </header>
 
       {/* ── 2. MAIN CONTENT: IN PRIMO PIANO IL VIDEO + SOTTO LE FOTO COLLEGATE ── */}
