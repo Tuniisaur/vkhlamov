@@ -654,6 +654,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
               src={resolveMediaUrl(activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl)}
+              poster={project.posterImage ? resolveMediaUrl(project.posterImage) : undefined}
               autoPlay
               muted={isMuted}
               loop
@@ -673,6 +674,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 }
               }}
               onCanPlay={() => setIsProjectMediaReady(true)}
+              onPlaying={() => setIsProjectMediaReady(true)}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onClick={togglePlay}

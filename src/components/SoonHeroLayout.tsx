@@ -251,6 +251,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           <video
             ref={videoRef}
             src={resolveMediaUrl(currentVideo)}
+            poster={resolveMediaUrl("/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
             autoPlay
             muted
             loop
@@ -260,6 +261,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
             onLoadedData={() => onHeroReady?.()}
             onCanPlay={() => onHeroReady?.()}
             onPlay={() => onHeroReady?.()}
+            onPlaying={() => onHeroReady?.()}
             className="w-full h-full object-cover"
           />
           {/* Subtle uniform film shading - gently darkens when about or contact info is displayed */}

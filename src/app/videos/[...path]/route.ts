@@ -3,7 +3,78 @@ import { Readable } from "stream";
 import fs from "fs/promises";
 import path from "path";
 import { getR2Client, getR2BucketName, isR2Configured, getR2PublicBase } from "@/utils/r2";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+
+export async function HEAD(
+  req: Request,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path: pathSegments } = await params;
+  if (!pathSegments || pathSegments.length === 0) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  const filename = pathSegments.join("/");
+
+  // Check local file
+  try {
+    const localFile = path.resolve(process.cwd(), "public", "videos", filename);
+    const stat = await fs.stat(localFile);
+    if (stat.isFile()) {
+      const ext = path.extname(filename).toLowerCase();
+      const contentType =
+        ext === ".webm" ? "video/webm" :
+        ext === ".mov" ? "video/quicktime" :
+        "video/mp4";
+      return new Response(null, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Length": stat.size.toString(),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+    }
+  } catch {}
+
+  // Cloudflare R2
+  if (isR2Configured()) {
+    const publicBase = getR2PublicBase();
+    if (publicBase && !publicBase.includes("r2.cloudflarestorage.com")) {
+      const targetKey = filename.startsWith("videos/") ? filename : `videos/${filename}`;
+      return NextResponse.redirect(`${publicBase}/${targetKey}`, 307);
+    }
+    try {
+      const s3 = getR2Client();
+      const bucket = getR2BucketName();
+      const candidateKeys = [`videos/${filename}`, filename];
+      for (const r2Key of candidateKeys) {
+        try {
+          const command = new HeadObjectCommand({ Bucket: bucket, Key: r2Key });
+          const response = await s3.send(command);
+          const ext = path.extname(filename).toLowerCase();
+          const contentType = response.ContentType || (
+            ext === ".webm" ? "video/webm" :
+            ext === ".mov" ? "video/quicktime" :
+            "video/mp4"
+          );
+          return new Response(null, {
+            status: 200,
+            headers: {
+              "Content-Type": contentType,
+              "Content-Length": (response.ContentLength || 0).toString(),
+              "Accept-Ranges": "bytes",
+              "Cache-Control": "public, max-age=31536000, immutable",
+            },
+          });
+        } catch {}
+      }
+    } catch {}
+  }
+
+  return new NextResponse(null, { status: 404 });
+}
 
 export async function GET(
   req: Request,

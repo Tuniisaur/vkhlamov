@@ -25,64 +25,83 @@ interface LogoPreloaderProps {
 
 export default function LogoPreloader({
   isReady = true,
-  minDuration = 0.25,
-  maxDuration = 0.9,
+  minDuration = 0.1,
+  maxDuration = 0.5,
   onComplete,
 }: LogoPreloaderProps) {
-  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">("init");
+  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        if (sessionStorage.getItem("valerio_preloader_seen") === "true") {
+          return "done";
+        }
+      } catch {}
+    }
+    return "init";
+  });
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [maxTimePassed, setMaxTimePassed] = useState(false);
 
   // 1. Initial trigger: transition from "init" to "loading"
   useEffect(() => {
+    if (phase === "done") return;
     const t0 = setTimeout(() => {
       setPhase("loading");
-    }, 40);
+    }, 20);
     return () => clearTimeout(t0);
-  }, []);
+  }, [phase]);
 
   // 2. Track minimum display duration
   useEffect(() => {
+    if (phase === "done") return;
     const tMin = setTimeout(() => {
       setMinTimePassed(true);
     }, minDuration * 1000);
     return () => clearTimeout(tMin);
-  }, [minDuration]);
+  }, [minDuration, phase]);
 
-  // 3. Track maximum safety duration (max 2-3s)
+  // 3. Track maximum safety duration
   useEffect(() => {
+    if (phase === "done") return;
     const tMax = setTimeout(() => {
       setMaxTimePassed(true);
     }, maxDuration * 1000);
     return () => clearTimeout(tMax);
-  }, [maxDuration]);
+  }, [maxDuration, phase]);
 
-  // 4. Trigger "logoOut" once video is ready (after minimum entrance) OR when max duration (2-3s) is reached
+  // 4. Trigger "logoOut" once video is ready (after minimum entrance) OR when max duration is reached
   useEffect(() => {
     if (phase === "loading" && ((minTimePassed && isReady) || maxTimePassed)) {
       setPhase("logoOut");
     }
   }, [phase, minTimePassed, isReady, maxTimePassed]);
 
-  // 5. When entering "logoOut", wait for animation (400ms) then set "done"
+  // 5. When entering "logoOut", wait for animation (300ms) then set "done"
   useEffect(() => {
     if (phase === "logoOut") {
       const tDone = setTimeout(() => {
         setPhase("done");
+        try {
+          sessionStorage.setItem("valerio_preloader_seen", "true");
+        } catch {}
         onComplete?.();
-      }, 420);
+      }, 300);
       return () => clearTimeout(tDone);
     }
   }, [phase, onComplete]);
 
-  // 6. Absolute safety fallback: unconditionally complete after (maxDuration + 1) seconds
+  // 6. Absolute safety fallback: unconditionally complete after (maxDuration + 0.5) seconds
   useEffect(() => {
+    if (phase === "done") return;
     const tSafety = setTimeout(() => {
       setPhase("done");
+      try {
+        sessionStorage.setItem("valerio_preloader_seen", "true");
+      } catch {}
       onComplete?.();
-    }, (maxDuration + 1) * 1000);
+    }, (maxDuration + 0.5) * 1000);
     return () => clearTimeout(tSafety);
-  }, [maxDuration, onComplete]);
+  }, [maxDuration, onComplete, phase]);
 
   if (phase === "done") {
     return null;

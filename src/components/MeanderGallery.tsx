@@ -64,42 +64,31 @@ function StoryCard({
   onSelect?: (project: LocalizedProject) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFramePlaying, setIsFramePlaying] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVertical, setIsVertical] = useState(false);
-  const playAttemptRef = useRef<boolean>(false);
 
   const handleMouseEnter = () => {
+    setIsHovered(true);
     const video = videoRef.current;
     if (!video) return;
-    setIsPlaying(true);
-    playAttemptRef.current = true;
 
     if (video.preload !== "auto") {
       video.preload = "auto";
     }
 
-    if (video.readyState >= 2) {
-      video.play().catch(() => {});
-      return;
-    }
-
-    const tryPlay = () => {
-      if (!playAttemptRef.current) return;
-      video.play().catch(() => {});
-    };
-    video.addEventListener("canplay", tryPlay, { once: true });
-
-    if (video.networkState === HTMLMediaElement.NETWORK_EMPTY || video.readyState === 0) {
-      video.load();
+    const p = video.play();
+    if (p !== undefined) {
+      p.catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
-    playAttemptRef.current = false;
-    setIsPlaying(false);
+    setIsHovered(false);
+    setIsFramePlaying(false);
     setProgress(0);
     if (videoRef.current) {
       videoRef.current.pause();
@@ -169,15 +158,16 @@ function StoryCard({
           preload="metadata"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onPlaying={() => setIsFramePlaying(true)}
           className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
             isVertical ? "object-contain" : "object-cover"
           }`}
         />
 
-        {/* Poster Image: Always shows before hover and returns when mouse leaves */}
+        {/* Poster Image: Stays 100% visible until the video actually renders moving frames */}
         <div
-          className={`absolute inset-0 transition-opacity duration-500 pointer-events-none ${
-            isPlaying ? "opacity-0" : isImageLoaded ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
+            isFramePlaying ? "opacity-0" : isImageLoaded ? "opacity-100" : "opacity-0"
           }`}
         >
           {item.poster && (
@@ -199,7 +189,7 @@ function StoryCard({
         <div
           style={{ width: `${progress}%` }}
           className={`progress absolute bottom-0 left-0 h-[3px] bg-white transition-opacity duration-200 pointer-events-none ${
-            isPlaying ? "opacity-100" : "opacity-0"
+            isFramePlaying ? "opacity-100" : "opacity-0"
           }`}
         />
 

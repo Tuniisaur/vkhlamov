@@ -15,7 +15,7 @@ function HomeContent() {
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#f5f5f7]">
       {/* Framer Logo Preloader on opening the site */}
-      <LogoPreloader isReady={isHeroReady} minDuration={0.8} maxDuration={2.5} />
+      <LogoPreloader isReady={isHeroReady} minDuration={0.15} maxDuration={0.6} />
 
       {/* Minimal Luxury Custom Cursor */}
       <CustomCursor />
