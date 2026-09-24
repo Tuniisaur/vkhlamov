@@ -61,13 +61,28 @@ export default function LogoPreloader({
   useEffect(() => {
     if (phase === "loading" && ((minTimePassed && isReady) || maxTimePassed)) {
       setPhase("logoOut");
+    }
+  }, [phase, minTimePassed, isReady, maxTimePassed]);
+
+  // 5. When entering "logoOut", wait for animation (700ms) then set "done"
+  useEffect(() => {
+    if (phase === "logoOut") {
       const tDone = setTimeout(() => {
         setPhase("done");
         onComplete?.();
       }, 750);
       return () => clearTimeout(tDone);
     }
-  }, [phase, minTimePassed, isReady, maxTimePassed, onComplete]);
+  }, [phase, onComplete]);
+
+  // 6. Absolute safety fallback: unconditionally complete after (maxDuration + 1) seconds
+  useEffect(() => {
+    const tSafety = setTimeout(() => {
+      setPhase("done");
+      onComplete?.();
+    }, (maxDuration + 1) * 1000);
+    return () => clearTimeout(tSafety);
+  }, [maxDuration, onComplete]);
 
   if (phase === "done") {
     return null;
@@ -95,6 +110,7 @@ export default function LogoPreloader({
 
   const transition = "transform 0.7s cubic-bezier(0.7, 0.2, 0.2, 1), opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
   const bgTransition = "opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
+  const isInteractive = phase === "init" || phase === "loading";
 
   return (
     <div
@@ -104,7 +120,9 @@ export default function LogoPreloader({
         opacity: bgOpacity,
         transition: bgTransition,
       }}
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#050505] pointer-events-auto select-none overflow-hidden"
+      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#050505] select-none overflow-hidden transition-opacity ${
+        isInteractive ? "pointer-events-auto" : "pointer-events-none"
+      }`}
     >
       <div
         style={{
