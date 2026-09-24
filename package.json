@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "optimize-media": "node scripts/optimize-media.mjs"
+    "optimize-media": "node scripts/optimize-media.mjs",
+    "upload-to-cloud": "node scripts/upload-to-cloud.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1138.0",
