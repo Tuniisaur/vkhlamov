@@ -538,19 +538,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       {/* ── 1. Top Cinema Header: Sleek, compact and non-intrusive ── */}
       <header className="sticky top-0 z-30 w-full bg-black/85 backdrop-blur-xl border-b border-white/[0.08] px-3 sm:px-8 py-2.5 sm:py-3 safe-top">
         <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Back to projects */}
-          <div className="flex-1 flex items-center justify-start min-w-0">
-            <Link
-              href="/?tab=projects"
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-white/[0.10] hover:bg-white/[0.18] border border-white/25 hover:border-white/50 text-white font-mono text-[11px] sm:text-xs tracking-wider transition-all duration-300 transform hover:-translate-x-0.5 active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.5)] backdrop-blur-md cursor-pointer group shrink-0"
-              title="Back to projects"
-            >
-              <span className="transition-transform duration-300 group-hover:-translate-x-1 text-sm leading-none font-sans">←</span>
-              <span className="font-medium tracking-wide">
-                <span className="hidden xs:inline">back to </span>projects
-              </span>
-            </Link>
-          </div>
+          {/* Left spacer so center stays perfectly centered */}
+          <div className="flex-1 flex items-center justify-start min-w-0" />
 
           {/* Center: VALERIY KHLAMOV Title + Menu */}
           <div className="flex flex-col items-center text-center shrink-0">
@@ -595,8 +584,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       </header>
 
       {/* ── 2. MAIN CONTENT: IN PRIMO PIANO IL VIDEO + SOTTO LE FOTO COLLEGATE ── */}
-      <main className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 md:px-8 pt-3 sm:pt-6 pb-12 sm:pb-24 space-y-12 sm:space-y-24">
+      <main className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 md:px-8 pt-3 sm:pt-6 pb-12 sm:pb-24 space-y-6 sm:space-y-12">
         
+        {/* Back to Projects Navigation Button (outside header) */}
+        <div className="flex items-center justify-start pt-1 sm:pt-2">
+          <Link
+            href="/?tab=projects"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/[0.08] hover:bg-white/[0.16] border border-white/20 hover:border-white/40 text-white font-mono text-xs tracking-wider transition-all duration-300 transform hover:-translate-x-1 active:scale-95 shadow-sm backdrop-blur-md cursor-pointer group"
+            title="Back to projects"
+          >
+            <span className="transition-transform duration-300 group-hover:-translate-x-1 text-sm font-sans leading-none">←</span>
+            <span className="font-medium tracking-wide">back to projects</span>
+          </Link>
+        </div>
+
         {/* ── SECTION 1: IN PRIMO PIANO IL VIDEO (Widescreen Cinema Player, No Boxes, No Heavy Borders) ── */}
         <section className="space-y-3 sm:space-y-4 animate-cinema-fade">
           {/* Top Bar above Video: Project Index/Title on Left + Multi-video Switcher on Right */}
@@ -872,6 +873,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           >
             <span className="transition-transform duration-300 group-hover:-translate-x-1 shrink-0">[ ← prev:</span>
             <span className="truncate">{prevProject.title.en || prevProject.title.it} ]</span>
+          </Link>
+
+          <Link
+            href="/?tab=projects"
+            className="min-h-[44px] px-3 hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-1.5 text-center text-white/80 hover:text-white font-medium cursor-pointer"
+          >
+            [ all projects ]
           </Link>
 
           <Link
