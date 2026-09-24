@@ -112,14 +112,68 @@ export default function ManagePage() {
     file: File,
     category?: "video" | "image"
   ): Promise<string | null> => {
+    let fileToUpload = file;
+
+    // ── 0. Automatic On-The-Fly Image Compression during Upload ──
+    const isImage =
+      category === "image" ||
+      file.type.startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+
+    if (isImage && typeof window !== "undefined") {
+      try {
+        const compressedBlob = await new Promise<Blob | null>((resolve) => {
+          const img = new window.Image();
+          const objUrl = URL.createObjectURL(file);
+          img.onload = () => {
+            URL.revokeObjectURL(objUrl);
+            const maxDim = 2560;
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, w, h);
+              canvas.toBlob(resolve, "image/jpeg", 0.82);
+            } else {
+              resolve(null);
+            }
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objUrl);
+            resolve(null);
+          };
+          img.src = objUrl;
+        });
+
+        if (compressedBlob && compressedBlob.size < file.size) {
+          const cleanName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+          fileToUpload = new File([compressedBlob], cleanName, { type: "image/jpeg" });
+        }
+      } catch (compErr) {
+        console.warn("Compressione immagine al volo non riuscita, procedo con file originale:", compErr);
+      }
+    }
+
     // 1. Direct upload to Cloudflare R2 via Presigned S3 URL (bypasses server payload limits for large videos)
     try {
       const presignedRes = await fetch("/api/media/presigned", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
+          filename: fileToUpload.name,
+          contentType: fileToUpload.type,
           folder: category === "video" ? "videos" : (category === "image" ? "images" : undefined),
         }),
       });
@@ -128,12 +182,12 @@ export default function ManagePage() {
         const presignedData = await presignedRes.json();
         if (presignedData.r2 && presignedData.uploadUrl) {
           const headers: Record<string, string> = {};
-          if (file.type) {
-            headers["Content-Type"] = file.type;
+          if (fileToUpload.type) {
+            headers["Content-Type"] = fileToUpload.type;
           }
           const uploadRes = await fetch(presignedData.uploadUrl, {
             method: "PUT",
-            body: file,
+            body: fileToUpload,
             headers,
           });
 
@@ -150,7 +204,7 @@ export default function ManagePage() {
 
     // 2. Server Upload Fallback (uploads directly to R2 bucket via server-side S3 client)
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", fileToUpload);
     if (category) fd.append("type", category);
     const res = await fetch("/api/media", {
       method: "POST",
