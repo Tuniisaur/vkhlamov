@@ -70,12 +70,6 @@ export default function ManagePage() {
     images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
   const [isUploading, setIsUploading] = useState<string | null>(null);
-  const [isOptimizingImages, setIsOptimizingImages] = useState(false);
-  const [optimizationProgress, setOptimizationProgress] = useState<{
-    current: number;
-    total: number;
-    savedMb: number;
-  } | null>(null);
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -112,68 +106,14 @@ export default function ManagePage() {
     file: File,
     category?: "video" | "image"
   ): Promise<string | null> => {
-    let fileToUpload = file;
-
-    // ── 0. Automatic On-The-Fly Image Compression during Upload ──
-    const isImage =
-      category === "image" ||
-      file.type.startsWith("image/") ||
-      /\.(jpg|jpeg|png|webp)$/i.test(file.name);
-
-    if (isImage && typeof window !== "undefined") {
-      try {
-        const compressedBlob = await new Promise<Blob | null>((resolve) => {
-          const img = new window.Image();
-          const objUrl = URL.createObjectURL(file);
-          img.onload = () => {
-            URL.revokeObjectURL(objUrl);
-            const maxDim = 2560;
-            let w = img.naturalWidth || img.width;
-            let h = img.naturalHeight || img.height;
-            if (w > maxDim || h > maxDim) {
-              if (w > h) {
-                h = Math.round((h * maxDim) / w);
-                w = maxDim;
-              } else {
-                w = Math.round((w * maxDim) / h);
-                h = maxDim;
-              }
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, w, h);
-              canvas.toBlob(resolve, "image/jpeg", 0.82);
-            } else {
-              resolve(null);
-            }
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(objUrl);
-            resolve(null);
-          };
-          img.src = objUrl;
-        });
-
-        if (compressedBlob && compressedBlob.size < file.size) {
-          const cleanName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-          fileToUpload = new File([compressedBlob], cleanName, { type: "image/jpeg" });
-        }
-      } catch (compErr) {
-        console.warn("Compressione immagine al volo non riuscita, procedo con file originale:", compErr);
-      }
-    }
-
     // 1. Direct upload to Cloudflare R2 via Presigned S3 URL (bypasses server payload limits for large videos)
     try {
       const presignedRes = await fetch("/api/media/presigned", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filename: fileToUpload.name,
-          contentType: fileToUpload.type,
+          filename: file.name,
+          contentType: file.type,
           folder: category === "video" ? "videos" : (category === "image" ? "images" : undefined),
         }),
       });
@@ -182,12 +122,12 @@ export default function ManagePage() {
         const presignedData = await presignedRes.json();
         if (presignedData.r2 && presignedData.uploadUrl) {
           const headers: Record<string, string> = {};
-          if (fileToUpload.type) {
-            headers["Content-Type"] = fileToUpload.type;
+          if (file.type) {
+            headers["Content-Type"] = file.type;
           }
           const uploadRes = await fetch(presignedData.uploadUrl, {
             method: "PUT",
-            body: fileToUpload,
+            body: file,
             headers,
           });
 
@@ -204,7 +144,7 @@ export default function ManagePage() {
 
     // 2. Server Upload Fallback (uploads directly to R2 bucket via server-side S3 client)
     const fd = new FormData();
-    fd.append("file", fileToUpload);
+    fd.append("file", file);
     if (category) fd.append("type", category);
     const res = await fetch("/api/media", {
       method: "POST",
@@ -217,83 +157,6 @@ export default function ManagePage() {
     const data = await res.json();
     await fetchMedia();
     return data.path;
-  };
-
-  const handleOptimizeCloudImages = async () => {
-    const candidates = mediaFiles.images.filter((img) => {
-      return img.size.includes("MB") && parseFloat(img.size) >= 0.8;
-    });
-
-    if (candidates.length === 0) {
-      alert("Tutte le immagini presenti su Cloudflare sono già ottimizzate (< 1 MB).");
-      return;
-    }
-
-    if (!confirm(`Trovate ${candidates.length} immagini pesanti (> 1 MB) su Cloudflare R2. Vuoi ottimizzarle e comprimerle in automatico adesso?`)) {
-      return;
-    }
-
-    setIsOptimizingImages(true);
-    setOptimizationProgress({ current: 0, total: candidates.length, savedMb: 0 });
-
-    let totalSavedBytes = 0;
-    let completed = 0;
-
-    for (const item of candidates) {
-      try {
-        const fullUrl = resolveMediaUrl(item.path);
-        const img = new window.Image();
-        img.crossOrigin = "anonymous";
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = fullUrl;
-        });
-
-        const maxDim = 2560;
-        let w = img.naturalWidth || img.width;
-        let h = img.naturalHeight || img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, w, h);
-          const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.82));
-          if (blob) {
-            const cleanName = item.name.replace(/\.[^.]+$/, "") + ".jpg";
-            const file = new File([blob], cleanName, { type: "image/jpeg" });
-            await handleUploadFile(file, "image");
-
-            const origEstimate = parseFloat(item.size) * 1024 * 1024;
-            const saved = Math.max(0, origEstimate - blob.size);
-            totalSavedBytes += saved;
-          }
-        }
-      } catch (err) {
-        console.warn(`Errore ottimizzazione ${item.name}:`, err);
-      }
-      completed++;
-      setOptimizationProgress({
-        current: completed,
-        total: candidates.length,
-        savedMb: Math.round((totalSavedBytes / (1024 * 1024)) * 10) / 10,
-      });
-    }
-
-    setIsOptimizingImages(false);
-    await fetchMedia();
-    alert(`Ottimizzazione completata con successo! Risparmiati ${Math.round(totalSavedBytes / (1024 * 1024))} MB nel Cloudflare R2.`);
   };
 
   const handleDeleteMedia = (filePath: string, key?: string) => {
@@ -2103,67 +1966,6 @@ export default function ManagePage() {
                   />
                 </label>
               </div>
-            </div>
-
-            {/* ── BANNER OTTIMIZZAZIONE AUTOMATICA CLOUDFLARE ── */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <h3 className="text-sm sm:text-base font-medium text-white tracking-wide">
-                      Centro Ottimizzazione Cloudflare R2
-                    </h3>
-                  </div>
-                  <p className="text-xs font-mono text-white/50 mt-1 max-w-2xl leading-relaxed">
-                    Comprimi automaticamente le immagini ad alta risoluzione presenti su Cloudflare R2 e carica le versioni .mp4 web-ready (FastStart) per eliminare ogni delay sul sito.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={isOptimizingImages}
-                    onClick={handleOptimizeCloudImages}
-                    className="px-4 py-2 rounded-lg bg-white text-black font-mono text-xs font-bold hover:bg-white/90 active:scale-95 transition-all cursor-pointer shadow-lg disabled:opacity-50"
-                  >
-                    {isOptimizingImages ? (
-                      <span>Ottimizzazione in corso...</span>
-                    ) : (
-                      <span>⚡ Ottimizza Immagini Cloud</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress Bar when optimizing images */}
-              {isOptimizingImages && optimizationProgress && (
-                <div className="pt-2 border-t border-white/10 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-mono text-white/70">
-                    <span>Elaborazione: {optimizationProgress.current} di {optimizationProgress.total} immagini</span>
-                    <span className="text-emerald-400 font-bold">Risparmiati: {optimizationProgress.savedMb} MB</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-400 transition-all duration-300"
-                      style={{ width: `${(optimizationProgress.current / optimizationProgress.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Status Video Pesanti (.mov) */}
-              {activeVideos.some((v) => v.name.toLowerCase().endsWith(".mov")) && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono space-y-2">
-                  <div className="flex items-center gap-2 text-amber-300 font-medium">
-                    <span>⚠️ Rilevati video 4K .mov non compressi (87MB / 51MB)</span>
-                  </div>
-                  <p className="text-white/60 leading-relaxed text-[11px]">
-                    I video 4K non possono essere ricodificati nei serverless di Vercel (limite 10-15s di timeout).
-                    Sul tuo Mac abbiamo già generato i file web-ready: usa il pulsante <strong>[ + carica video ]</strong> sopra per caricare i file <code>.mp4</code> da <code>public/videos/</code> (<code>portfolio-wec-8155.mp4</code> e <code>sfondo-portfolio-hero.mp4</code>).
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Video List */}
