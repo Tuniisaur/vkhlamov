@@ -542,9 +542,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           <div className="flex-1 flex items-center justify-start min-w-0">
             <Link
               href="/?tab=projects"
-              className="min-h-[36px] flex items-center gap-1 font-mono text-[11px] sm:text-xs text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:-translate-x-1 cursor-pointer truncate"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-white/[0.10] hover:bg-white/[0.18] border border-white/25 hover:border-white/50 text-white font-mono text-[11px] sm:text-xs tracking-wider transition-all duration-300 transform hover:-translate-x-0.5 active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.5)] backdrop-blur-md cursor-pointer group shrink-0"
+              title="Back to projects"
             >
-              <span className="hidden xs:inline">[</span> ← <span className="hidden sm:inline">back to </span>projects <span className="hidden xs:inline">]</span>
+              <span className="transition-transform duration-300 group-hover:-translate-x-1 text-sm leading-none font-sans">←</span>
+              <span className="font-medium tracking-wide">
+                <span className="hidden xs:inline">back to </span>projects
+              </span>
             </Link>
           </div>
 
