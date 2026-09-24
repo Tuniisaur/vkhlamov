@@ -64,8 +64,8 @@ export const LOCALIZED_PROJECTS: LocalizedProject[] = [
     "location": "Circuit de La Sarthe. France",
     "duration": "02:45",
     "posterImage": "/images/still-2026-09-23-130212_1-2-1-5306.jpg",
-    "videoPreviewUrl": "/videos/portfolio-wec-8155.mov",
-    "fullVideoUrl": "/videos/portfolio-wec-8155.mov",
+    "videoPreviewUrl": "/videos/portfolio-wec-preview.mp4",
+    "fullVideoUrl": "/videos/portfolio-wec-8155.mp4",
     "telemetry": {
       "speed": "312 KM/H",
       "gForce": "4.2 G",
