@@ -12,6 +12,7 @@ import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { captureVideoThumbnail } from "@/utils/videoThumbnail";
+import FramerVideoPlayer from "@/components/FramerVideoPlayer";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -782,117 +783,37 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             )}
           </div>
 
-          <div
-            className={`relative mx-auto bg-black overflow-hidden rounded-lg group shadow-[0_20px_60px_rgba(0,0,0,0.85)] border border-white/[0.04] transition-all duration-500 ease-out flex items-center justify-center ${
-              isVertical
-                ? "aspect-[9/16] w-auto max-h-[calc(100dvh-200px)] sm:max-h-[calc(100dvh-220px)] max-w-[min(100%,480px)]"
-                : "w-full aspect-video max-h-[calc(100dvh-200px)] sm:max-h-[calc(100dvh-220px)]"
-            }`}
-            style={
-              isVertical && videoAspectRatio
-                ? { aspectRatio: `${videoAspectRatio}` }
-                : undefined
-            }
-          >
-            <video
+          {/* Framer Video Player */}
+          <div className="w-full flex justify-center">
+            <FramerVideoPlayer
               key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
-              src={resolveMediaUrl(activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl)}
-              poster={activeVideo?.poster ? resolveMediaUrl(activeVideo.poster) : (project.posterImage ? resolveMediaUrl(project.posterImage) : undefined)}
-              autoPlay
+              src={activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl}
+              poster={activeVideo?.poster ? activeVideo.poster : project.posterImage}
+              autoPlay={true}
               muted={isMuted}
-              loop
-              playsInline
-              preload="auto"
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={() => {
-                handleLoadedMetadata();
-                setIsProjectMediaReady(true);
+              loop={true}
+              cornerRadius={14}
+              progressColor="#ffffff"
+              onReady={() => setIsProjectMediaReady(true)}
+              onPlayStateChange={(playing) => setIsPlaying(playing)}
+              onMuteStateChange={(m) => setIsMuted(m)}
+              onAspectRatioChange={(vert, ratio) => {
+                setIsVertical(vert);
+                setVideoAspectRatio(ratio);
               }}
-              onLoadedData={() => {
-                setIsProjectMediaReady(true);
-                if (videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {
-                  const { videoWidth, videoHeight } = videoRef.current;
-                  setIsVertical(videoHeight > videoWidth);
-                  setVideoAspectRatio(videoWidth / videoHeight);
-                }
+              onTimeUpdate={(curr) => {
+                const fmtPad = (n: number) => String(Math.floor(n)).padStart(2, "0");
+                const h = Math.floor(curr / 3600);
+                const m = Math.floor((curr % 3600) / 60);
+                const s = Math.floor(curr % 60);
+                const frames = Math.floor((curr % 1) * 24);
+                setCurrentTime(`${fmtPad(h)}:${fmtPad(m)}:${fmtPad(s)}:${fmtPad(frames)}`);
               }}
-              onCanPlay={() => setIsProjectMediaReady(true)}
-              onPlaying={() => setIsProjectMediaReady(true)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onClick={togglePlay}
-              className={`w-full h-full cursor-pointer transition-transform duration-700 ease-out group-hover:scale-[1.005] ${
-                isVertical ? "object-contain" : "object-cover"
-              }`}
             />
-
-            {/* Subtle Pause Overlay indicator with Smooth Fade */}
-            <div
-              onClick={togglePlay}
-              className={`absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer transition-all duration-500 ease-out backdrop-blur-[2px] ${
-                !isPlaying ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-              }`}
-            >
-              <span className="text-xs font-mono tracking-widest uppercase text-white/90 italic transform hover:scale-105 transition-transform duration-300">
-                [ paused — tap to play ]
-              </span>
-            </div>
           </div>
 
-          {/* Minimal Controls Row in Monospace Text with Smooth Transitions */}
           <div className={`mx-auto transition-all duration-500 space-y-4 ${isVertical ? "max-w-2xl" : "w-full"}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4 text-xs font-mono text-white/60 pt-1 border-b border-white/10 pb-3 sm:pb-4">
-              {/* On Mobile: Row 1 is the video timecode */}
-              <div className="sm:hidden flex items-center justify-center">
-                <span className="text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
-              </div>
-
-              {/* Controls Buttons: on mobile Row 2 with pause, sound, fullscreen; on desktop left side */}
-              <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-6 w-full sm:w-auto">
-                <div className="flex items-center gap-3 sm:gap-6">
-                  <button
-                    onClick={togglePlay}
-                    className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                  >
-                    {isPlaying ? "[ pause ]" : "[ play ]"}
-                  </button>
-                  <button
-                    onClick={toggleSound}
-                    className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                  >
-                    {isMuted ? "[ sound on ]" : "[ sound off ]"}
-                  </button>
-                  {/* On Desktop: timecode is inline */}
-                  <span className="hidden sm:inline text-white/40 tracking-wider transition-colors duration-300">{currentTime}</span>
-                </div>
-
-                {/* Mobile Fullscreen Button (Row 2 right) */}
-                <div className="flex items-center sm:hidden">
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                    className="min-h-[44px] px-2 flex items-center hover:text-white hover:italic transition-all duration-300 transform active:scale-95 cursor-pointer touch-manipulation select-none"
-                  >
-                    {isFullscreen ? "[ exit fullscreen ]" : "[ fullscreen ]"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Desktop Fullscreen Button */}
-              <div className="hidden sm:flex items-center gap-4 sm:gap-6">
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                  className="min-h-[36px] px-1 flex items-center hover:text-white hover:italic transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer"
-                >
-                  {isFullscreen ? "[ exit fullscreen ]" : "[ fullscreen ]"}
-                </button>
-              </div>
-            </div>
-
             {/* Minimal Editorial Details (Zero Cards, Pure Typography) */}
             <div className="pt-2 sm:pt-4 max-w-4xl space-y-2 sm:space-y-3">
               <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
