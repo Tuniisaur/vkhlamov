@@ -565,20 +565,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </h3>
           </div>
 
-          {/* Stills Gallery - Griglia responsive, pure foto senza titoli né sottotitoli */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 w-full">
+          {/* Stills Gallery - Due per riga su mobile (grid-cols-2), 3 su desktop (lg:grid-cols-3) */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6 w-full">
             {project.stills?.map((still, idx) => (
               <div
                 key={idx}
                 onClick={() => setSelectedStill(still.url)}
-                className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+                className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-lg sm:rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
               >
                 <Image
                   src={resolveMediaUrl(still.url)}
                   alt=""
                   fill
                   loading="lazy"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  sizes="(max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
                 />
               </div>
