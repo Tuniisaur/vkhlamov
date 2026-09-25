@@ -11,7 +11,6 @@ import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
-import LogoPreloader from "@/components/LogoPreloader";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -523,16 +522,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   if (!project) {
     if (isLoading) {
-      return <LogoPreloader minDuration={0.2} maxDuration={0.6} />;
+      return (
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+          <div className="w-8 h-8 border border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      );
     }
     notFound();
   }
 
   return (
     <div className="min-h-screen w-full bg-black text-white selection:bg-white selection:text-black flex flex-col justify-between select-none">
-      {/* Framer Logo Preloader on entering project - ultra fast crossfade */}
-      <LogoPreloader key={projectId} isReady={isProjectMediaReady} minDuration={0.15} maxDuration={0.5} />
-
       <CustomCursor />
 
       {/* ── 1. Top Cinema Header: Exact same dimensions, padding, typography and layout as homepage projects section ── */}
