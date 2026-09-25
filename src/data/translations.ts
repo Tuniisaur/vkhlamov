@@ -10,6 +10,9 @@ export interface ProjectVideo {
   url: string;
   title?: string;
   duration?: string;
+  posterImage?: string;
+  coverImage?: string;
+  poster?: string;
 }
 
 export interface LocalizedProject {

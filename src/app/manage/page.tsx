@@ -14,6 +14,7 @@ import {
 import { LocalizedProject, ProjectStill, ProjectVideo } from "@/data/translations";
 import { detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { captureVideoThumbnail } from "@/utils/videoThumbnail";
 
 function AnimatedLoadingText({ label = "caricamento" }: { label?: string }) {
   return (
@@ -689,7 +690,7 @@ export default function ManagePage() {
     });
   };
 
-  // Update Main Video fields (title, url, duration)
+  // Update Main Video fields (title, url, duration, cover)
   const handleUpdateMainVideo = (index: number, patch: Partial<ProjectVideo>) => {
     if (!editingProject || !editingProject.videos) return;
     const list = [...editingProject.videos];
@@ -700,6 +701,74 @@ export default function ManagePage() {
       videos: list,
       fullVideoUrl: list[0]?.url || "",
     });
+  };
+
+  // Automatically generate cover for a single video from its frames
+  const handleAutoGenerateCoverForVideo = async (vIdx: number) => {
+    if (!editingProject || !editingProject.videos?.[vIdx]) return;
+    const vid = editingProject.videos[vIdx];
+    setIsUploading(`vid-cover-auto-${vIdx}`);
+    try {
+      const fullVideoUrl = resolveMediaUrl(vid.url);
+      const thumb = await captureVideoThumbnail(fullVideoUrl, 1.0);
+      if (!thumb?.blob) {
+        throw new Error("Impossibile estrarre il fotogramma dal video. Verifica che il file video sia valido.");
+      }
+      const cleanName = (vid.title || `video-${vIdx + 1}`).toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+      const thumbFile = new File([thumb.blob], `cover-${cleanName}-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+      const coverPath = await handleUploadFile(thumbFile, "image");
+      if (coverPath) {
+        handleUpdateMainVideo(vIdx, { posterImage: coverPath, poster: coverPath });
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Errore generazione copertina automatica");
+    } finally {
+      setIsUploading(null);
+    }
+  };
+
+  // Automatically generate covers for all videos missing a cover
+  const handleAutoGenerateAllCovers = async () => {
+    if (!editingProject || !editingProject.videos || editingProject.videos.length === 0) return;
+    setIsUploading("all-vid-covers");
+    try {
+      const updated = [...editingProject.videos];
+      let generatedCount = 0;
+      for (let idx = 0; idx < updated.length; idx++) {
+        const vid = updated[idx];
+        if (!vid.posterImage && !vid.poster) {
+          try {
+            const fullVideoUrl = resolveMediaUrl(vid.url);
+            const thumb = await captureVideoThumbnail(fullVideoUrl, 1.0);
+            if (thumb?.blob) {
+              const cleanName = (vid.title || `video-${idx + 1}`).toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+              const thumbFile = new File([thumb.blob], `cover-${cleanName}-${Date.now()}.jpg`, {
+                type: "image/jpeg",
+              });
+              const coverPath = await handleUploadFile(thumbFile, "image");
+              if (coverPath) {
+                updated[idx] = { ...vid, posterImage: coverPath, poster: coverPath };
+                generatedCount++;
+              }
+            }
+          } catch (e) {
+            console.warn(`Could not generate cover for video ${idx}:`, e);
+          }
+        }
+      }
+      if (generatedCount > 0) {
+        setEditingProject({
+          ...editingProject,
+          videos: updated,
+        });
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Errore durante la generazione delle copertine");
+    } finally {
+      setIsUploading(null);
+    }
   };
 
   // Save Hero Video
@@ -2414,8 +2483,25 @@ export default function ManagePage() {
                     </p>
                   </div>
 
-                  <label className="text-[11px] text-[#e0fe10] hover:brightness-110 cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto py-1 px-3 rounded border border-[#e0fe10]/30 bg-[#e0fe10]/10 transition-all font-mono">
-                    <span>{isUploading === "proj-videos" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video dal pc ]"}</span>
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    {editingProject.videos && editingProject.videos.some((v) => !v.posterImage && !v.poster) && (
+                      <button
+                        type="button"
+                        onClick={handleAutoGenerateAllCovers}
+                        disabled={isUploading !== null}
+                        className="text-[11px] text-white hover:text-black bg-white/10 hover:bg-[#e0fe10] cursor-pointer inline-flex items-center gap-1.5 py-1 px-2.5 rounded border border-white/20 transition-all font-mono"
+                        title="Estrae e crea automaticamente la copertina da tutti i video senza cover"
+                      >
+                        {isUploading === "all-vid-covers" ? (
+                          <AnimatedLoadingText label="creazione copertine" />
+                        ) : (
+                          <span>⚡ genera tutte le copertine</span>
+                        )}
+                      </button>
+                    )}
+
+                    <label className="text-[11px] text-[#e0fe10] hover:brightness-110 cursor-pointer inline-flex items-center gap-1.5 py-1 px-3 rounded border border-[#e0fe10]/30 bg-[#e0fe10]/10 transition-all font-mono">
+                      <span>{isUploading === "proj-videos" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video dal pc ]"}</span>
                     <input
                       type="file"
                       accept="video/*,.mp4,.webm,.mov"
@@ -2432,6 +2518,22 @@ export default function ManagePage() {
                             const durPromise = detectVideoDuration(f);
                             const path = await handleUploadFile(f, "video");
                             const dur = (await durPromise) || "";
+
+                            // ⚡ Automatically capture frame and generate video cover
+                            let autoCoverPath = "";
+                            try {
+                              const thumb = await captureVideoThumbnail(f, 1.0);
+                              if (thumb?.blob) {
+                                const cleanBase = f.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "-");
+                                const thumbFile = new File([thumb.blob], `cover-${cleanBase}-${Date.now()}.jpg`, {
+                                  type: "image/jpeg",
+                                });
+                                autoCoverPath = (await handleUploadFile(thumbFile, "image")) || "";
+                              }
+                            } catch (thumbErr) {
+                              console.warn("Could not auto-generate thumbnail during upload:", thumbErr);
+                            }
+
                             if (path) {
                               const cleanTitle = f.name
                                 .replace(/\.[^/.]+$/, "")
@@ -2440,6 +2542,8 @@ export default function ManagePage() {
                                 url: path,
                                 title: cleanTitle || `Film ${String((editingProject?.videos?.length || 0) + i + 1).padStart(2, "0")}`,
                                 duration: dur,
+                                posterImage: autoCoverPath,
+                                poster: autoCoverPath,
                               });
                             }
                           }
@@ -2466,6 +2570,7 @@ export default function ManagePage() {
                     />
                   </label>
                 </div>
+              </div>
 
                 {/* List of Main Videos */}
                 {editingProject.videos && editingProject.videos.length > 0 ? (
@@ -2550,6 +2655,75 @@ export default function ManagePage() {
                                   }
                                   className="w-full bg-transparent border-b border-white/15 py-1 text-sm text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
                                 />
+                              </div>
+
+                              {/* Video Cover / Poster Field */}
+                              <div>
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                    Cover / Poster Video {vid.posterImage || vid.poster ? "" : "(opzionale - fallback su poster/stills attivo)"}
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAutoGenerateCoverForVideo(vIdx)}
+                                      disabled={isUploading !== null}
+                                      className="text-[9px] text-[#e0fe10] hover:underline cursor-pointer inline-flex items-center gap-0.5 font-mono"
+                                      title="Estrae un fotogramma da questo video e lo imposta come copertina"
+                                    >
+                                      {isUploading === `vid-cover-auto-${vIdx}` ? (
+                                        <AnimatedLoadingText label="creazione" />
+                                      ) : (
+                                        <span>[ ⚡ genera dal video ]</span>
+                                      )}
+                                    </button>
+                                    <label className="text-[9px] text-white/70 hover:text-white hover:underline cursor-pointer inline-flex items-center gap-1 font-mono">
+                                      <span>{isUploading === `vid-cover-${vIdx}` ? <AnimatedLoadingText label="caricamento" /> : "[ carica immagine ]"}</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        disabled={isUploading === `vid-cover-${vIdx}`}
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          setIsUploading(`vid-cover-${vIdx}`);
+                                          try {
+                                            const path = await handleUploadFile(file, "image");
+                                            if (path) {
+                                              handleUpdateMainVideo(vIdx, { posterImage: path, poster: path });
+                                            }
+                                          } catch (err) {
+                                            alert(err instanceof Error ? err.message : "Errore caricamento cover");
+                                          } finally {
+                                            setIsUploading(null);
+                                            e.target.value = "";
+                                          }
+                                        }}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {(vid.posterImage || vid.poster || editingProject.posterImage) && (
+                                    <div className="w-12 h-7 rounded overflow-hidden bg-black/60 border border-white/10 shrink-0">
+                                      <img
+                                        src={resolveMediaUrl(vid.posterImage || vid.poster || editingProject.posterImage)}
+                                        alt="cover"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  <input
+                                    type="text"
+                                    value={vid.posterImage || vid.poster || ""}
+                                    placeholder="es. /images/... o https://... (lascia vuoto per fallback automatico)"
+                                    onChange={(e) =>
+                                      handleUpdateMainVideo(vIdx, { posterImage: e.target.value, poster: e.target.value })
+                                    }
+                                    className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
+                                  />
+                                </div>
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

@@ -11,6 +11,7 @@ import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { captureVideoThumbnail } from "@/utils/videoThumbnail";
 
 interface FullscreenDoc extends Document {
   webkitFullscreenElement?: Element;
@@ -28,6 +29,132 @@ interface FullscreenVideo extends HTMLVideoElement {
   webkitRequestFullscreen?: () => Promise<void> | void;
   mozRequestFullScreen?: () => Promise<void> | void;
   msRequestFullscreen?: () => Promise<void> | void;
+}
+
+interface VideoCardItemProps {
+  vid: { url: string; title: string; duration?: string; poster?: string };
+  vIdx: number;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+function VideoCardItem({ vid, vIdx, isSelected, onSelect }: VideoCardItemProps) {
+  const [displayCover, setDisplayCover] = useState<string | null>(vid.poster || null);
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (vid.poster) {
+      setDisplayCover(vid.poster);
+      return;
+    }
+
+    // Automatically capture a frame from the video if no poster is provided
+    let isCancelled = false;
+    const resolvedUrl = resolveMediaUrl(vid.url);
+    captureVideoThumbnail(resolvedUrl, 1.0)
+      .then((res) => {
+        if (!isCancelled && res?.dataUrl) {
+          setDisplayCover(res.dataUrl);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [vid.url, vid.poster]);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (hoverVideoRef.current) {
+      hoverVideoRef.current.preload = "auto";
+      const p = hoverVideoRef.current.play();
+      if (p !== undefined) {
+        p.catch(() => {});
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (hoverVideoRef.current) {
+      hoverVideoRef.current.pause();
+      hoverVideoRef.current.currentTime = 0;
+    }
+  };
+
+  const coverUrl = displayCover ? resolveMediaUrl(displayCover) : null;
+
+  return (
+    <div
+      onClick={onSelect}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 select-none ${
+        isSelected
+          ? "border-white/70 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
+          : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
+      }`}
+    >
+      <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
+        {/* Video Cover / Poster Image */}
+        {coverUrl ? (
+          <img
+            src={coverUrl}
+            alt={vid.title}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 w-full h-full bg-[#111114] flex items-center justify-center">
+            <span className="text-[10px] font-mono text-white/30 animate-pulse">[ genera cover... ]</span>
+          </div>
+        )}
+
+        {/* Video element for subtle hover preview */}
+        <video
+          ref={hoverVideoRef}
+          src={resolveMediaUrl(vid.url)}
+          poster={coverUrl || undefined}
+          muted
+          playsInline
+          preload="none"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        />
+
+        {/* Dark subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+
+        {/* Index badge */}
+        <div className="absolute top-2 left-2 font-mono text-[10px] bg-black/80 backdrop-blur-sm px-2 py-0.5 rounded text-white/90 border border-white/15">
+          0{vIdx + 1}
+        </div>
+
+        {/* Play icon or Active indicator */}
+        {isSelected ? (
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center font-mono text-xs text-white font-bold tracking-wider">
+            [ in riproduzione ]
+          </div>
+        ) : (
+          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-white text-xs pl-0.5 shadow-lg">
+              ▶
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-xs font-mono px-0.5">
+        <span className={`truncate font-medium transition-colors ${isSelected ? "text-white" : "text-white/60 group-hover:text-white"}`}>
+          {vid.title}
+        </span>
+        {vid.duration && (
+          <span className="text-white/40 text-[10px] shrink-0 ml-2 font-mono">{vid.duration}</span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function ProjectDetailClient({ projectId }: { projectId: string }) {
@@ -49,16 +176,32 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   // Multi-video support: parse all main videos of the project
   const allVideos = useMemo(() => {
-    const list: { url: string; title: string; duration?: string }[] = [];
+    const list: { url: string; title: string; duration?: string; poster?: string }[] = [];
     if (Array.isArray(project?.videos) && project.videos.length > 0) {
       project.videos.forEach((v, idx) => {
+        const fallbackPoster =
+          idx === 0
+            ? project.posterImage
+            : project.stills?.[idx - 1]?.url || project.stills?.[idx]?.url || project.posterImage;
+
         if (typeof v === "string" && (v as string).trim()) {
-          list.push({ url: (v as string).trim(), title: `Film 0${idx + 1}` });
+          list.push({
+            url: (v as string).trim(),
+            title: `Film 0${idx + 1}`,
+            poster: fallbackPoster,
+          });
         } else if (v && typeof v === "object" && v.url?.trim()) {
+          const explicitPoster =
+            (v as any).posterImage ||
+            (v as any).coverImage ||
+            (v as any).poster ||
+            (v as any).cover;
+
           list.push({
             url: v.url.trim(),
             title: v.title?.trim() || `Film 0${idx + 1}`,
             duration: v.duration?.trim(),
+            poster: explicitPoster?.trim() || fallbackPoster,
           });
         }
       });
@@ -68,6 +211,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         url: project.fullVideoUrl || project.videoPreviewUrl,
         title: "Main Film",
         duration: project.duration,
+        poster: project.posterImage,
       });
     }
     return list;
@@ -654,7 +798,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
               src={resolveMediaUrl(activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl)}
-              poster={project.posterImage ? resolveMediaUrl(project.posterImage) : undefined}
+              poster={activeVideo?.poster ? resolveMediaUrl(activeVideo.poster) : (project.posterImage ? resolveMediaUrl(project.posterImage) : undefined)}
               autoPlay
               muted={isMuted}
               loop
@@ -779,56 +923,25 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               {allVideos.length > 1 && (
                 <div className="pt-6 sm:pt-8 border-t border-white/10 space-y-3">
                   <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
-                    <span>{"//"} tutti i video del film ({allVideos.length})</span>
+                    <span>{"//"} tutti i video ({allVideos.length})</span>
                     <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
                       seleziona per riprodurre nel player
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                    {allVideos.map((vid, vIdx) => {
-                      const isSelected = selectedVideoIndex === vIdx;
-                      return (
-                        <div
-                          key={vIdx}
-                          onClick={() => {
-                            setSelectedVideoIndex(vIdx);
-                            setIsPlaying(true);
-                            videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                          }}
-                          className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 ${
-                            isSelected
-                              ? "border-white/70 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
-                              : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
-                          }`}
-                        >
-                          <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
-                            <video
-                              src={resolveMediaUrl(vid.url)}
-                              muted
-                              playsInline
-                              preload="none"
-                              className="w-full h-full object-contain pointer-events-none"
-                            />
-                            <div className="absolute top-1.5 left-1.5 font-mono text-[10px] bg-black/80 px-1.5 py-0.5 rounded text-white/80 border border-white/10">
-                              0{vIdx + 1}
-                            </div>
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center font-mono text-xs text-white font-bold">
-                                [ in riproduzione ]
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between text-xs font-mono px-0.5">
-                            <span className={`truncate font-medium ${isSelected ? "text-white" : "text-white/60 group-hover:text-white"}`}>
-                              {vid.title}
-                            </span>
-                            {vid.duration && (
-                              <span className="text-white/40 text-[10px] shrink-0 ml-2">{vid.duration}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {allVideos.map((vid, vIdx) => (
+                      <VideoCardItem
+                        key={vIdx}
+                        vid={vid}
+                        vIdx={vIdx}
+                        isSelected={selectedVideoIndex === vIdx}
+                        onSelect={() => {
+                          setSelectedVideoIndex(vIdx);
+                          setIsPlaying(true);
+                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
