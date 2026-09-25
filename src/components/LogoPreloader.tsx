@@ -57,7 +57,7 @@ export default function LogoPreloader({
     if (phase !== "init") return;
     const t0 = setTimeout(() => {
       setPhase("loading");
-    }, 30);
+    }, 40);
     return () => clearTimeout(t0);
   }, [phase]);
 
@@ -86,39 +86,38 @@ export default function LogoPreloader({
     }
   }, [phase, minTimePassed, isReady, maxTimePassed]);
 
-  // 4. When entering "logoOut", wait for exit animation (450ms) then set "done"
+  // 4. When entering "logoOut", wait for exit animation (750ms) then set "done"
   useEffect(() => {
     if (phase !== "logoOut") return;
     const tDone = setTimeout(() => {
       hasSeenPreloaderInMemory = true;
       setPhase("done");
       onCompleteRef.current?.();
-    }, 450);
+    }, 750);
     return () => clearTimeout(tDone);
   }, [phase]);
 
-  // 5. Absolute safety fallback: unconditionally complete after (maxDuration + 0.6) seconds
+  // 5. Absolute safety fallback: ensure logoOut is triggered rather than skipping exit animation
   useEffect(() => {
-    if (phase === "done") return;
+    if (phase === "done" || phase === "logoOut") return;
     const tSafety = setTimeout(() => {
-      hasSeenPreloaderInMemory = true;
-      setPhase("done");
-      onCompleteRef.current?.();
-    }, (maxDuration + 0.6) * 1000);
+      setPhase("logoOut");
+    }, (maxDuration + 0.5) * 1000);
     return () => clearTimeout(tSafety);
-  }, [maxDuration, phase === "done"]);
+  }, [maxDuration, phase]);
 
   if (phase === "done") {
     return null;
   }
 
   // Animation values replicating the Framer LogoPreloader spec:
+  // cubic-bezier(.7, .2, .2, 1), 0.7s duration
   let logoTranslateY = 0;
   let logoOpacity = 1;
   let bgOpacity = 1;
 
   if (phase === "init") {
-    logoTranslateY = 40;
+    logoTranslateY = 70;
     logoOpacity = 0;
     bgOpacity = 1;
   } else if (phase === "loading") {
@@ -126,27 +125,33 @@ export default function LogoPreloader({
     logoOpacity = 1;
     bgOpacity = 1;
   } else if (phase === "logoOut") {
-    logoTranslateY = -40;
+    logoTranslateY = -70;
     logoOpacity = 0;
     bgOpacity = 0;
   }
 
-  const transition = "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)";
-  const bgTransition = "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)";
+  const transition = "transform 0.7s cubic-bezier(0.7, 0.2, 0.2, 1), opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
+  const bgTransition = "opacity 0.7s cubic-bezier(0.7, 0.2, 0.2, 1)";
   const isInteractive = phase === "init" || phase === "loading";
 
   return (
     <div
       role="status"
       aria-label="Caricamento in corso"
-      style={{
-        opacity: bgOpacity,
-        transition: bgTransition,
-      }}
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#050505] select-none overflow-hidden ${
+      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center select-none overflow-hidden ${
         isInteractive ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
+      {/* Dark Cinema Backdrop (fades smoothly to reveal page behind) */}
+      <div
+        style={{
+          opacity: bgOpacity,
+          transition: bgTransition,
+        }}
+        className="absolute inset-0 bg-[#050505]"
+      />
+
+      {/* Floating VK Monogram (glides upwards and fades with independent opacity) */}
       <div
         style={{
           transform: `translateY(${logoTranslateY}px)`,
@@ -154,7 +159,7 @@ export default function LogoPreloader({
           transition,
           willChange: "transform, opacity",
         }}
-        className="flex flex-col items-center justify-center px-4 text-center"
+        className="relative z-10 flex flex-col items-center justify-center px-4 text-center"
       >
         {/* VK Monogram Logo */}
         <h1 className="font-title-custom uppercase text-white tracking-[0.16em] text-4xl sm:text-6xl md:text-7xl lg:text-8xl leading-none select-none">
