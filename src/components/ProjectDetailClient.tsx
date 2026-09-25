@@ -11,11 +11,8 @@ import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
-import { captureVideoThumbnail, getCachedVideoThumbnail } from "@/utils/videoThumbnail";
 import FramerVideoPlayer from "@/components/FramerVideoPlayer";
 import LogoPreloader from "@/components/LogoPreloader";
-
-
 
 interface SecondaryVideoBlockProps {
   vid: { url: string; title: string; duration?: string; poster?: string };
@@ -23,8 +20,6 @@ interface SecondaryVideoBlockProps {
   onMuteChange: (m: boolean) => void;
   onPlay: () => void;
   videoRefCallback: (node: HTMLVideoElement | null) => void;
-  fallbackPoster?: string;
-  onThumbnailCaptured?: (url: string, dataUrl: string) => void;
 }
 
 function SecondaryVideoBlock({
@@ -33,48 +28,8 @@ function SecondaryVideoBlock({
   onMuteChange,
   onPlay,
   videoRefCallback,
-  fallbackPoster,
-  onThumbnailCaptured,
 }: SecondaryVideoBlockProps) {
-  const resolvedUrl = resolveMediaUrl(vid.url);
-  const cachedThumbnail = getCachedVideoThumbnail(resolvedUrl);
-  const [posterUrl, setPosterUrl] = useState<string | undefined>(
-    vid.poster ? resolveMediaUrl(vid.poster) : cachedThumbnail || undefined
-  );
-
-  useEffect(() => {
-    if (vid.poster) {
-      setPosterUrl(resolveMediaUrl(vid.poster));
-      return;
-    }
-
-    const cached = getCachedVideoThumbnail(resolvedUrl);
-    if (cached) {
-      setPosterUrl(cached);
-      onThumbnailCaptured?.(vid.url, cached);
-      return;
-    }
-
-    let isCancelled = false;
-    captureVideoThumbnail(resolvedUrl, 2.0)
-      .then((res) => {
-        if (!isCancelled && res?.dataUrl) {
-          setPosterUrl(res.dataUrl);
-          onThumbnailCaptured?.(vid.url, res.dataUrl);
-        } else if (!isCancelled && fallbackPoster) {
-          setPosterUrl(resolveMediaUrl(fallbackPoster));
-        }
-      })
-      .catch(() => {
-        if (!isCancelled && fallbackPoster) {
-          setPosterUrl(resolveMediaUrl(fallbackPoster));
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [vid.url, vid.poster, resolvedUrl, fallbackPoster, onThumbnailCaptured]);
+  const posterUrl = vid.poster ? resolveMediaUrl(vid.poster) : undefined;
 
   return (
     <div className="w-full flex justify-center animate-cinema-fade">
@@ -154,7 +109,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const primaryVideo = allVideos[0];
   const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
 
-  const [capturedThumbnails, setCapturedThumbnails] = useState<Record<string, string>>({});
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const handleMainPlay = useCallback(() => {
@@ -177,17 +131,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     });
   }, []);
 
-  const handleThumbnailCaptured = useCallback((url: string, dataUrl: string) => {
-    setCapturedThumbnails((prev) => {
-      if (prev[url] === dataUrl) return prev;
-      return { ...prev, [url]: dataUrl };
-    });
-  }, []);
-
-  const activeVideoPoster =
-    primaryVideo?.poster ||
-    (primaryVideo?.url ? capturedThumbnails[primaryVideo.url] : null) ||
-    project?.posterImage;
+  const activeVideoPoster = primaryVideo?.poster || project?.posterImage;
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
@@ -550,8 +494,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 videoRefCallback={(el) => {
                   secondaryVideoRefs.current[sIdx] = el;
                 }}
-                fallbackPoster={project.posterImage}
-                onThumbnailCaptured={handleThumbnailCaptured}
               />
             ))}
           </section>

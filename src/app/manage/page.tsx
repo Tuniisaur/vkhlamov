@@ -2519,21 +2519,6 @@ export default function ManagePage() {
                             const path = await handleUploadFile(f, "video");
                             const dur = (await durPromise) || "";
 
-                            // ⚡ Automatically capture frame and generate video cover
-                            let autoCoverPath = "";
-                            try {
-                              const thumb = await captureVideoThumbnail(f, 1.0);
-                              if (thumb?.blob) {
-                                const cleanBase = f.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "-");
-                                const thumbFile = new File([thumb.blob], `cover-${cleanBase}-${Date.now()}.jpg`, {
-                                  type: "image/jpeg",
-                                });
-                                autoCoverPath = (await handleUploadFile(thumbFile, "image")) || "";
-                              }
-                            } catch (thumbErr) {
-                              console.warn("Could not auto-generate thumbnail during upload:", thumbErr);
-                            }
-
                             if (path) {
                               const cleanTitle = f.name
                                 .replace(/\.[^/.]+$/, "")
@@ -2542,8 +2527,8 @@ export default function ManagePage() {
                                 url: path,
                                 title: cleanTitle || `Film ${String((editingProject?.videos?.length || 0) + i + 1).padStart(2, "0")}`,
                                 duration: dur,
-                                posterImage: autoCoverPath,
-                                poster: autoCoverPath,
+                                posterImage: "",
+                                poster: "",
                               });
                             }
                           }
