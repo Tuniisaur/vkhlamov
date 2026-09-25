@@ -681,12 +681,12 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
       {/* ── 1. Top Cinema Header: Exact same dimensions, padding, typography and layout as homepage projects section ── */}
       <header className="sticky top-0 left-0 right-0 z-50 w-full px-3 sm:px-8 flex flex-col items-center text-center pointer-events-auto select-none hero-header-scrolled pb-2 sm:pb-2.5 bg-black/75 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.7)] transition-all duration-500 ease-out">
-        {/* Top Sound Toggle Positioned on the Right without taking vertical flow */}
-        <div className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-10 flex items-center">
+        {/* Top Sound Toggle Positioned on the Right without taking vertical flow (Hidden on mobile) */}
+        <div className="hidden sm:flex absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-10 items-center">
           <button
             onClick={toggleSound}
             aria-label={isMuted ? "Sound on" : "Sound off"}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[10px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform active:scale-95 sm:hover:scale-105 cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform active:scale-95 sm:hover:scale-105 cursor-pointer"
           >
             {isMuted ? "[ sound on ]" : "[ sound off ]"}
           </button>
