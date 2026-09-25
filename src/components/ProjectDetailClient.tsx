@@ -11,60 +11,77 @@ import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
-import { captureVideoThumbnail } from "@/utils/videoThumbnail";
+import { captureVideoThumbnail, getCachedVideoThumbnail } from "@/utils/videoThumbnail";
 import FramerVideoPlayer from "@/components/FramerVideoPlayer";
+import LogoPreloader from "@/components/LogoPreloader";
 
-interface FullscreenDoc extends Document {
-  webkitFullscreenElement?: Element;
-  mozFullScreenElement?: Element;
-  msFullscreenElement?: Element;
-  webkitExitFullscreen?: () => Promise<void> | void;
-  mozCancelFullScreen?: () => Promise<void> | void;
-  msExitFullscreen?: () => Promise<void> | void;
-}
 
-interface FullscreenVideo extends HTMLVideoElement {
-  webkitDisplayingFullscreen?: boolean;
-  webkitEnterFullscreen?: () => void;
-  webkitExitFullscreen?: () => void;
-  webkitRequestFullscreen?: () => Promise<void> | void;
-  mozRequestFullScreen?: () => Promise<void> | void;
-  msRequestFullscreen?: () => Promise<void> | void;
-}
 
 interface VideoCardItemProps {
   vid: { url: string; title: string; duration?: string; poster?: string };
   vIdx: number;
   isSelected: boolean;
   onSelect: () => void;
+  fallbackPoster?: string;
+  onThumbnailCaptured?: (url: string, dataUrl: string) => void;
 }
 
-function VideoCardItem({ vid, vIdx, isSelected, onSelect }: VideoCardItemProps) {
-  const [displayCover, setDisplayCover] = useState<string | null>(vid.poster || null);
+function VideoCardItem({
+  vid,
+  vIdx,
+  isSelected,
+  onSelect,
+  fallbackPoster,
+  onThumbnailCaptured,
+}: VideoCardItemProps) {
+  const resolvedUrl = resolveMediaUrl(vid.url);
+  const cachedThumbnail = getCachedVideoThumbnail(resolvedUrl);
+  const [displayCover, setDisplayCover] = useState<string | null>(vid.poster || cachedThumbnail || null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(!vid.poster && !cachedThumbnail);
   const hoverVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (vid.poster) {
       setDisplayCover(vid.poster);
+      setIsCapturing(false);
       return;
     }
 
-    // Automatically capture a frame from the video if no poster is provided
+    const cached = getCachedVideoThumbnail(resolvedUrl);
+    if (cached) {
+      setDisplayCover(cached);
+      setIsCapturing(false);
+      onThumbnailCaptured?.(vid.url, cached);
+      return;
+    }
+
     let isCancelled = false;
-    const resolvedUrl = resolveMediaUrl(vid.url);
-    captureVideoThumbnail(resolvedUrl, 1.0)
+    setIsCapturing(true);
+
+    // Intelligently capture a luminous frame from the video
+    captureVideoThumbnail(resolvedUrl, 2.0)
       .then((res) => {
         if (!isCancelled && res?.dataUrl) {
           setDisplayCover(res.dataUrl);
+          onThumbnailCaptured?.(vid.url, res.dataUrl);
+        } else if (!isCancelled && fallbackPoster) {
+          setDisplayCover(fallbackPoster);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!isCancelled && fallbackPoster) {
+          setDisplayCover(fallbackPoster);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsCapturing(false);
+      });
 
     return () => {
       isCancelled = true;
     };
-  }, [vid.url, vid.poster]);
+  }, [vid.url, vid.poster, resolvedUrl, fallbackPoster, onThumbnailCaptured]);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -108,8 +125,9 @@ function VideoCardItem({ vid, vIdx, isSelected, onSelect }: VideoCardItemProps) 
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="absolute inset-0 w-full h-full bg-[#111114] flex items-center justify-center">
-            <span className="text-[10px] font-mono text-white/30 animate-pulse">[ genera cover... ]</span>
+          <div className="absolute inset-0 w-full h-full bg-[#111114] flex flex-col items-center justify-center gap-1.5 select-none">
+            <div className="w-4 h-4 border border-white/20 border-t-white rounded-full animate-spin" />
+            <span className="text-[9px] font-mono tracking-wider text-white/40 uppercase">estrazione frame...</span>
           </div>
         )}
 
@@ -180,16 +198,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const list: { url: string; title: string; duration?: string; poster?: string }[] = [];
     if (Array.isArray(project?.videos) && project.videos.length > 0) {
       project.videos.forEach((v, idx) => {
-        const fallbackPoster =
-          idx === 0
-            ? project.posterImage
-            : project.stills?.[idx - 1]?.url || project.stills?.[idx]?.url || project.posterImage;
-
         if (typeof v === "string" && (v as string).trim()) {
           list.push({
             url: (v as string).trim(),
             title: `Film 0${idx + 1}`,
-            poster: fallbackPoster,
+            poster: undefined, // Automatically captures a frame of the video
           });
         } else if (v && typeof v === "object" && v.url?.trim()) {
           const explicitPoster =
@@ -202,7 +215,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             url: v.url.trim(),
             title: v.title?.trim() || `Film 0${idx + 1}`,
             duration: v.duration?.trim(),
-            poster: explicitPoster?.trim() || fallbackPoster,
+            poster: explicitPoster?.trim() || undefined, // Extracted frame if no explicit cover
           });
         }
       });
@@ -219,15 +232,26 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, [project]);
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+  const [capturedThumbnails, setCapturedThumbnails] = useState<Record<string, string>>({});
+
+  const handleThumbnailCaptured = useCallback((url: string, dataUrl: string) => {
+    setCapturedThumbnails((prev) => {
+      if (prev[url] === dataUrl) return prev;
+      return { ...prev, [url]: dataUrl };
+    });
+  }, []);
+
   const activeVideo = allVideos[selectedVideoIndex] || allVideos[0];
+  const activeVideoPoster =
+    activeVideo?.poster ||
+    (activeVideo?.url ? capturedThumbnails[activeVideo.url] : null) ||
+    project?.posterImage;
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState("00:00:00:00");
   const [selectedStill, setSelectedStill] = useState<string | null>(null);
   const [isScrolledToStills, setIsScrolledToStills] = useState(false);
   const [bottomOffset, setBottomOffset] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState<string | null>(null);
   const [isProjectMediaReady, setIsProjectMediaReady] = useState(false);
   const [isVertical, setIsVertical] = useState(false);
@@ -440,238 +464,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     }
   }, [projectId, selectedVideoIndex, applyAudioFade]);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-      applyAudioFade();
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
 
-  const toggleSound = () => {
-    if (!videoRef.current) return;
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    isMutedRef.current = nextMuted;
-
-    if (nextMuted) {
-      videoRef.current.muted = true;
-      videoRef.current.volume = 0;
-    } else {
-      const vol = calculateScrollVolume();
-      if (vol <= 0.01) {
-        videoRef.current.muted = true;
-        videoRef.current.volume = 0;
-      } else {
-        videoRef.current.muted = false;
-        videoRef.current.volume = Math.round(vol * 100) / 100;
-      }
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const cur = videoRef.current.currentTime;
-    const mins = Math.floor(cur / 60);
-    const secs = Math.floor(cur % 60);
-    const frames = Math.floor((cur % 1) * 24);
-    setCurrentTime(
-      `00:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}:${frames.toString().padStart(2, "0")}`
-    );
-  };
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      const { videoWidth, videoHeight, duration } = videoRef.current;
-      if (videoWidth && videoHeight) {
-        const vertical = videoHeight > videoWidth;
-        setIsVertical(vertical);
-        setVideoAspectRatio(videoWidth / videoHeight);
-      }
-      if (duration && !isNaN(duration) && isFinite(duration)) {
-        const durStr = formatVideoDuration(duration);
-        if (durStr && durStr !== "00:00") {
-          setDetectedDuration(durStr);
-        }
-      }
-    }
-  };
-
-  const isDocFullscreen = () => {
-    if (typeof document === "undefined") return false;
-    const doc = document as FullscreenDoc;
-    const vid = videoRef.current as FullscreenVideo | null;
-    return Boolean(
-      doc.fullscreenElement ||
-      doc.webkitFullscreenElement ||
-      doc.mozFullScreenElement ||
-      doc.msFullscreenElement ||
-      vid?.webkitDisplayingFullscreen
-    );
-  };
-
-  useEffect(() => {
-    const handleFsChange = () => {
-      const isFs = isDocFullscreen();
-      setIsFullscreen(isFs);
-      if (videoRef.current) {
-        // Expose native scrub/pause controls while in fullscreen mode
-        videoRef.current.controls = isFs;
-      }
-    };
-
-    const videoEl = videoRef.current as (HTMLVideoElement & {
-      addEventListener: (type: string, listener: () => void) => void;
-      removeEventListener: (type: string, listener: () => void) => void;
-    }) | null;
-
-    const onVideoEnterFs = () => {
-      setIsFullscreen(true);
-    };
-    const onVideoExitFs = () => {
-      setIsFullscreen(false);
-      if (videoRef.current) {
-        videoRef.current.controls = false;
-        setIsPlaying(!videoRef.current.paused);
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFsChange);
-    document.addEventListener("webkitfullscreenchange", handleFsChange);
-    document.addEventListener("mozfullscreenchange", handleFsChange);
-    document.addEventListener("MSFullscreenChange", handleFsChange);
-
-    if (videoEl) {
-      videoEl.addEventListener("webkitbeginfullscreen", onVideoEnterFs);
-      videoEl.addEventListener("webkitendfullscreen", onVideoExitFs);
-    }
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFsChange);
-      document.removeEventListener("webkitfullscreenchange", handleFsChange);
-      document.removeEventListener("mozfullscreenchange", handleFsChange);
-      document.removeEventListener("MSFullscreenChange", handleFsChange);
-      if (videoEl) {
-        videoEl.removeEventListener("webkitbeginfullscreen", onVideoEnterFs);
-        videoEl.removeEventListener("webkitendfullscreen", onVideoExitFs);
-      }
-    };
-  }, []);
-
-  const toggleFullscreen = async () => {
-    const video = videoRef.current as FullscreenVideo | null;
-    if (!video) return;
-
-    if (isDocFullscreen()) {
-      // Exit fullscreen
-      const doc = document as FullscreenDoc;
-      if (typeof doc.exitFullscreen === "function") {
-        try {
-          await doc.exitFullscreen();
-          return;
-        } catch {}
-      }
-      if (typeof doc.webkitExitFullscreen === "function") {
-        try {
-          doc.webkitExitFullscreen();
-          return;
-        } catch {}
-      }
-      if (typeof doc.mozCancelFullScreen === "function") {
-        try {
-          doc.mozCancelFullScreen();
-          return;
-        } catch {}
-      }
-      if (typeof doc.msExitFullscreen === "function") {
-        try {
-          doc.msExitFullscreen();
-          return;
-        } catch {}
-      }
-      if (typeof video.webkitExitFullscreen === "function") {
-        try {
-          video.webkitExitFullscreen();
-          return;
-        } catch {}
-      }
-    } else {
-      // Enter fullscreen
-      const isIOS =
-        typeof navigator !== "undefined" &&
-        (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-
-      // 1. Prioritize native webkitEnterFullscreen on iOS devices (iPhone, iPad)
-      // where element.requestFullscreen is either not supported or throws errors
-      if (isIOS && typeof video.webkitEnterFullscreen === "function") {
-        try {
-          if (video.paused) {
-            video.play().catch(() => {});
-            setIsPlaying(true);
-          }
-          video.webkitEnterFullscreen();
-          return;
-        } catch (e) {
-          console.warn("webkitEnterFullscreen failed:", e);
-        }
-      }
-
-      // 2. Standard Fullscreen API (Android Chrome, Firefox, desktop browsers)
-      if (typeof video.requestFullscreen === "function") {
-        try {
-          await video.requestFullscreen();
-          return;
-        } catch {
-          // If requestFullscreen fails or is rejected, fallback to webkitEnterFullscreen
-          if (typeof video.webkitEnterFullscreen === "function") {
-            try {
-              video.webkitEnterFullscreen();
-              return;
-            } catch {}
-          }
-        }
-      }
-
-      // 3. Fallbacks for various WebKit/Blink browsers
-      if (typeof video.webkitEnterFullscreen === "function") {
-        try {
-          video.webkitEnterFullscreen();
-          return;
-        } catch {}
-      }
-      if (typeof video.webkitRequestFullscreen === "function") {
-        try {
-          video.webkitRequestFullscreen();
-          return;
-        } catch {}
-      }
-      if (typeof video.mozRequestFullScreen === "function") {
-        try {
-          video.mozRequestFullScreen();
-          return;
-        } catch {}
-      }
-      if (typeof video.msRequestFullscreen === "function") {
-        try {
-          video.msRequestFullscreen();
-          return;
-        } catch {}
-      }
-    }
-  };
 
   if (!project) {
     if (isLoading) {
-      return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-          <div className="w-8 h-8 border border-white/20 border-t-white rounded-full animate-spin" />
-        </div>
-      );
+      return <LogoPreloader minDuration={0.6} maxDuration={1.8} />;
     }
     notFound();
   }
@@ -682,17 +479,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
       {/* ── 1. Top Cinema Header: Exact same dimensions, padding, typography and layout as homepage projects section ── */}
       <header className="sticky top-0 left-0 right-0 z-50 w-full px-3 sm:px-8 flex flex-col items-center text-center pointer-events-auto select-none hero-header-scrolled pb-2 sm:pb-2.5 bg-black/75 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.7)] transition-all duration-500 ease-out">
-        {/* Top Sound Toggle Positioned on the Right without taking vertical flow (Hidden on mobile) */}
-        <div className="hidden sm:flex absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-10 items-center">
-          <button
-            onClick={toggleSound}
-            aria-label={isMuted ? "Sound on" : "Sound off"}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform active:scale-95 sm:hover:scale-105 cursor-pointer"
-          >
-            {isMuted ? "[ sound on ]" : "[ sound off ]"}
-          </button>
-        </div>
-
         {/* VALERIY KHLAMOV Title - Identical size to projects section header */}
         <Link
           href="/"
@@ -789,7 +575,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               key={activeVideo?.url || "main-player-video"}
               ref={videoRef}
               src={activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl}
-              poster={activeVideo?.poster ? activeVideo.poster : project.posterImage}
+              poster={activeVideoPoster}
               autoPlay={true}
               muted={isMuted}
               loop={true}
@@ -802,13 +588,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 setIsVertical(vert);
                 setVideoAspectRatio(ratio);
               }}
-              onTimeUpdate={(curr) => {
-                const fmtPad = (n: number) => String(Math.floor(n)).padStart(2, "0");
-                const h = Math.floor(curr / 3600);
-                const m = Math.floor((curr % 3600) / 60);
-                const s = Math.floor(curr % 60);
-                const frames = Math.floor((curr % 1) * 24);
-                setCurrentTime(`${fmtPad(h)}:${fmtPad(m)}:${fmtPad(s)}:${fmtPad(frames)}`);
+              onTimeUpdate={(_, dur) => {
+                if (!detectedDuration && dur && !isNaN(dur) && isFinite(dur)) {
+                  const durStr = formatVideoDuration(dur);
+                  if (durStr && durStr !== "00:00") {
+                    setDetectedDuration(durStr);
+                  }
+                }
               }}
             />
           </div>
@@ -856,6 +642,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                         vid={vid}
                         vIdx={vIdx}
                         isSelected={selectedVideoIndex === vIdx}
+                        fallbackPoster={project.posterImage}
+                        onThumbnailCaptured={handleThumbnailCaptured}
                         onSelect={() => {
                           setSelectedVideoIndex(vIdx);
                           setIsPlaying(true);

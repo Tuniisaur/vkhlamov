@@ -23,31 +23,24 @@ interface LogoPreloaderProps {
   onComplete?: () => void;
 }
 
-// Module-level in-memory flag: once the preloader has run in this session/SPA lifecycle,
-// client-side navigation will NEVER show or flash it again.
+// Module-level in-memory flag: once the preloader has run in this SPA lifecycle,
+// client-side navigation won't re-flash it unnecessarily.
 let hasSeenPreloaderInMemory = false;
 
 export default function LogoPreloader({
   isReady = true,
-  minDuration = 0.15,
-  maxDuration = 0.6,
+  minDuration = 0.7,
+  maxDuration = 2.0,
   onComplete,
 }: LogoPreloaderProps) {
-  const isAlreadySeen = () => {
-    if (hasSeenPreloaderInMemory) return true;
+  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">(() => {
+    // Clear any legacy sessionStorage flag that permanently blocked the preloader in the user's browser
     if (typeof window !== "undefined") {
       try {
-        if (sessionStorage.getItem("valerio_preloader_seen") === "true") {
-          hasSeenPreloaderInMemory = true;
-          return true;
-        }
+        sessionStorage.removeItem("valerio_preloader_seen");
       } catch {}
     }
-    return false;
-  };
-
-  const [phase, setPhase] = useState<"init" | "loading" | "logoOut" | "done">(() => {
-    if (isAlreadySeen()) {
+    if (hasSeenPreloaderInMemory) {
       return "done";
     }
     return "init";
@@ -59,12 +52,12 @@ export default function LogoPreloader({
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [maxTimePassed, setMaxTimePassed] = useState(false);
 
-  // 1. Initial trigger: transition from "init" to "loading" exactly once
+  // 1. Initial trigger: transition from "init" to "loading"
   useEffect(() => {
     if (phase !== "init") return;
     const t0 = setTimeout(() => {
       setPhase("loading");
-    }, 20);
+    }, 30);
     return () => clearTimeout(t0);
   }, [phase]);
 
@@ -93,31 +86,25 @@ export default function LogoPreloader({
     }
   }, [phase, minTimePassed, isReady, maxTimePassed]);
 
-  // 4. When entering "logoOut", wait for exit animation (300ms) then set "done"
+  // 4. When entering "logoOut", wait for exit animation (450ms) then set "done"
   useEffect(() => {
     if (phase !== "logoOut") return;
     const tDone = setTimeout(() => {
       hasSeenPreloaderInMemory = true;
-      try {
-        sessionStorage.setItem("valerio_preloader_seen", "true");
-      } catch {}
       setPhase("done");
       onCompleteRef.current?.();
-    }, 300);
+    }, 450);
     return () => clearTimeout(tDone);
   }, [phase]);
 
-  // 5. Absolute safety fallback: unconditionally complete after (maxDuration + 0.4) seconds
+  // 5. Absolute safety fallback: unconditionally complete after (maxDuration + 0.6) seconds
   useEffect(() => {
     if (phase === "done") return;
     const tSafety = setTimeout(() => {
       hasSeenPreloaderInMemory = true;
-      try {
-        sessionStorage.setItem("valerio_preloader_seen", "true");
-      } catch {}
       setPhase("done");
       onCompleteRef.current?.();
-    }, (maxDuration + 0.4) * 1000);
+    }, (maxDuration + 0.6) * 1000);
     return () => clearTimeout(tSafety);
   }, [maxDuration, phase === "done"]);
 
@@ -131,7 +118,7 @@ export default function LogoPreloader({
   let bgOpacity = 1;
 
   if (phase === "init") {
-    logoTranslateY = 50;
+    logoTranslateY = 40;
     logoOpacity = 0;
     bgOpacity = 1;
   } else if (phase === "loading") {
@@ -139,13 +126,13 @@ export default function LogoPreloader({
     logoOpacity = 1;
     bgOpacity = 1;
   } else if (phase === "logoOut") {
-    logoTranslateY = -50;
+    logoTranslateY = -40;
     logoOpacity = 0;
     bgOpacity = 0;
   }
 
-  const transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
-  const bgTransition = "opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+  const transition = "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)";
+  const bgTransition = "opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)";
   const isInteractive = phase === "init" || phase === "loading";
 
   return (
@@ -156,7 +143,7 @@ export default function LogoPreloader({
         opacity: bgOpacity,
         transition: bgTransition,
       }}
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#050505] select-none overflow-hidden transition-opacity ${
+      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#050505] select-none overflow-hidden ${
         isInteractive ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
