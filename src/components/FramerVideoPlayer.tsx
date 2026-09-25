@@ -394,6 +394,10 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       const video = videoRef.current;
       if (!video) return;
+      const root = rootRef.current;
+      const isHovered = root ? root.matches(":hover") : false;
+      const hasFocus = root ? root.contains(document.activeElement) : false;
+      if (!isFullscreen && !isHovered && !hasFocus && video.paused) return;
 
       switch (e.key) {
         case " ":

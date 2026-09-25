@@ -17,65 +17,61 @@ import LogoPreloader from "@/components/LogoPreloader";
 
 
 
-interface VideoCardItemProps {
+interface SecondaryVideoBlockProps {
   vid: { url: string; title: string; duration?: string; poster?: string };
-  vIdx: number;
-  isSelected: boolean;
-  onSelect: () => void;
+  index: number;
+  isMuted: boolean;
+  onMuteChange: (m: boolean) => void;
+  onPlay: () => void;
+  videoRefCallback: (node: HTMLVideoElement | null) => void;
   fallbackPoster?: string;
   onThumbnailCaptured?: (url: string, dataUrl: string) => void;
 }
 
-function VideoCardItem({
+function SecondaryVideoBlock({
   vid,
-  vIdx,
-  isSelected,
-  onSelect,
+  index,
+  isMuted,
+  onMuteChange,
+  onPlay,
+  videoRefCallback,
   fallbackPoster,
   onThumbnailCaptured,
-}: VideoCardItemProps) {
+}: SecondaryVideoBlockProps) {
   const resolvedUrl = resolveMediaUrl(vid.url);
   const cachedThumbnail = getCachedVideoThumbnail(resolvedUrl);
-  const [displayCover, setDisplayCover] = useState<string | null>(vid.poster || cachedThumbnail || null);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(!vid.poster && !cachedThumbnail);
-  const hoverVideoRef = useRef<HTMLVideoElement>(null);
+  const [posterUrl, setPosterUrl] = useState<string | undefined>(
+    vid.poster ? resolveMediaUrl(vid.poster) : cachedThumbnail || undefined
+  );
+  const [detectedDuration, setDetectedDuration] = useState<string | null>(vid.duration || null);
 
   useEffect(() => {
     if (vid.poster) {
-      setDisplayCover(vid.poster);
-      setIsCapturing(false);
+      setPosterUrl(resolveMediaUrl(vid.poster));
       return;
     }
 
     const cached = getCachedVideoThumbnail(resolvedUrl);
     if (cached) {
-      setDisplayCover(cached);
-      setIsCapturing(false);
+      setPosterUrl(cached);
       onThumbnailCaptured?.(vid.url, cached);
       return;
     }
 
     let isCancelled = false;
-    setIsCapturing(true);
-
-    // Intelligently capture a luminous frame from the video
     captureVideoThumbnail(resolvedUrl, 2.0)
       .then((res) => {
         if (!isCancelled && res?.dataUrl) {
-          setDisplayCover(res.dataUrl);
+          setPosterUrl(res.dataUrl);
           onThumbnailCaptured?.(vid.url, res.dataUrl);
         } else if (!isCancelled && fallbackPoster) {
-          setDisplayCover(fallbackPoster);
+          setPosterUrl(resolveMediaUrl(fallbackPoster));
         }
       })
       .catch(() => {
         if (!isCancelled && fallbackPoster) {
-          setDisplayCover(fallbackPoster);
+          setPosterUrl(resolveMediaUrl(fallbackPoster));
         }
-      })
-      .finally(() => {
-        if (!isCancelled) setIsCapturing(false);
       });
 
     return () => {
@@ -83,94 +79,50 @@ function VideoCardItem({
     };
   }, [vid.url, vid.poster, resolvedUrl, fallbackPoster, onThumbnailCaptured]);
 
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-    if (hoverVideoRef.current) {
-      hoverVideoRef.current.preload = "auto";
-      const p = hoverVideoRef.current.play();
-      if (p !== undefined) {
-        p.catch(() => {});
-      }
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    if (hoverVideoRef.current) {
-      hoverVideoRef.current.pause();
-      hoverVideoRef.current.currentTime = 0;
-    }
-  };
-
-  const coverUrl = displayCover ? resolveMediaUrl(displayCover) : null;
-
   return (
     <div
-      onClick={onSelect}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={`group cursor-pointer rounded-xl overflow-hidden border p-2.5 bg-[#0c0c0e] transition-all space-y-2 select-none ${
-        isSelected
-          ? "border-white/70 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)]"
-          : "border-white/10 hover:border-white/30 hover:bg-white/[0.02]"
-      }`}
+      id={`secondary-video-${index}`}
+      className="scroll-mt-24 sm:scroll-mt-28 space-y-2.5 sm:space-y-3.5 w-full animate-cinema-fade"
     >
-      <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
-        {/* Video Cover / Poster Image */}
-        {coverUrl ? (
-          <img
-            src={coverUrl}
-            alt={vid.title}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="absolute inset-0 w-full h-full bg-[#111114] flex flex-col items-center justify-center gap-1.5 select-none">
-            <div className="w-4 h-4 border border-white/20 border-t-white rounded-full animate-spin" />
-            <span className="text-[9px] font-mono tracking-wider text-white/40 uppercase">estrazione frame...</span>
-          </div>
-        )}
-
-        {/* Video element for subtle hover preview */}
-        <video
-          ref={hoverVideoRef}
-          src={resolveMediaUrl(vid.url)}
-          poster={coverUrl || undefined}
-          muted
-          playsInline
-          preload="none"
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        />
-
-        {/* Dark subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
-
-        {/* Index badge */}
-        <div className="absolute top-2 left-2 font-mono text-[10px] bg-black/80 backdrop-blur-sm px-2 py-0.5 rounded text-white/90 border border-white/15">
-          0{vIdx + 1}
+      {/* Top Bar above Secondary Video: index & title on left, duration on right */}
+      <div className="flex items-center justify-between text-xs font-mono tracking-wider px-1">
+        <div className="flex items-center gap-2 text-white/80">
+          <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+          <span className="uppercase font-medium text-white/90">
+            0{index} // {vid.title}
+          </span>
         </div>
-
-        {/* Play icon or Active indicator */}
-        {isSelected ? (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center font-mono text-xs text-white font-bold tracking-wider">
-            [ in riproduzione ]
-          </div>
-        ) : (
-          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-white text-xs pl-0.5 shadow-lg">
-              ▶
-            </div>
-          </div>
+        {(detectedDuration || vid.duration) && (
+          <span className="text-white/40 font-mono text-[11px] sm:text-xs">
+            {detectedDuration || vid.duration}
+          </span>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-xs font-mono px-0.5">
-        <span className={`truncate font-medium transition-colors ${isSelected ? "text-white" : "text-white/60 group-hover:text-white"}`}>
-          {vid.title}
-        </span>
-        {vid.duration && (
-          <span className="text-white/40 text-[10px] shrink-0 ml-2 font-mono">{vid.duration}</span>
-        )}
+      {/* Cinema Player for Secondary Video */}
+      <div className="w-full flex justify-center">
+        <FramerVideoPlayer
+          ref={videoRefCallback}
+          src={vid.url}
+          poster={posterUrl}
+          autoPlay={false}
+          muted={isMuted}
+          loop={true}
+          cornerRadius={14}
+          progressColor="#ffffff"
+          onPlayStateChange={(playing) => {
+            if (playing) onPlay();
+          }}
+          onMuteStateChange={onMuteChange}
+          onTimeUpdate={(_, dur) => {
+            if (!detectedDuration && dur && !isNaN(dur) && isFinite(dur)) {
+              const durStr = formatVideoDuration(dur);
+              if (durStr && durStr !== "00:00") {
+                setDetectedDuration(durStr);
+              }
+            }
+          }}
+        />
       </div>
     </div>
   );
@@ -231,8 +183,34 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     return list;
   }, [project]);
 
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+  const primaryVideo = allVideos[0];
+  const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
+
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [capturedThumbnails, setCapturedThumbnails] = useState<Record<string, string>>({});
+  const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
+  const handleMainPlay = useCallback(() => {
+    setActiveSectionIndex(0);
+    // Pause all secondary videos so there is no simultaneous playback
+    secondaryVideoRefs.current.forEach((v) => {
+      if (v && !v.paused) v.pause();
+    });
+  }, []);
+
+  const handleSecondaryPlay = useCallback((sIdx: number) => {
+    setActiveSectionIndex(sIdx + 1);
+    // Pause main top video
+    if (videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+    // Pause any other secondary video
+    secondaryVideoRefs.current.forEach((v, idx) => {
+      if (idx !== sIdx && v && !v.paused) {
+        v.pause();
+      }
+    });
+  }, []);
 
   const handleThumbnailCaptured = useCallback((url: string, dataUrl: string) => {
     setCapturedThumbnails((prev) => {
@@ -241,10 +219,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     });
   }, []);
 
-  const activeVideo = allVideos[selectedVideoIndex] || allVideos[0];
   const activeVideoPoster =
-    activeVideo?.poster ||
-    (activeVideo?.url ? capturedThumbnails[activeVideo.url] : null) ||
+    primaryVideo?.poster ||
+    (primaryVideo?.url ? capturedThumbnails[primaryVideo.url] : null) ||
     project?.posterImage;
 
   const [isPlaying, setIsPlaying] = useState(true);
@@ -266,35 +243,31 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         setVideoAspectRatio(videoRef.current.videoWidth / videoRef.current.videoHeight);
       }
     }
-  }, [projectId, selectedVideoIndex]);
+  }, [projectId]);
 
-  // Reset selected video index and vertical state when navigating to another project
+  // Reset states when navigating to another project
   useEffect(() => {
-    setSelectedVideoIndex(0);
+    setActiveSectionIndex(0);
     setIsProjectMediaReady(false);
     setIsVertical(false);
     setVideoAspectRatio(null);
+    secondaryVideoRefs.current = [];
   }, [projectId]);
 
-  useEffect(() => {
-    setIsVertical(false);
-    setVideoAspectRatio(null);
-  }, [selectedVideoIndex]);
-
-  // Detect duration for current active video
+  // Detect duration for main video
   useEffect(() => {
     let isCancelled = false;
-    if (activeVideo?.duration) {
-      setDetectedDuration(activeVideo.duration);
-    } else if (activeVideo?.url) {
-      detectVideoDuration(activeVideo.url).then((dur) => {
+    if (primaryVideo?.duration) {
+      setDetectedDuration(primaryVideo.duration);
+    } else if (primaryVideo?.url) {
+      detectVideoDuration(primaryVideo.url).then((dur) => {
         if (!isCancelled && dur) setDetectedDuration(dur);
       });
     }
     return () => {
       isCancelled = true;
     };
-  }, [activeVideo]);
+  }, [primaryVideo]);
 
   // Always start at the very top of the page when opening or switching projects
   useEffect(() => {
@@ -462,7 +435,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           }
         });
     }
-  }, [projectId, selectedVideoIndex, applyAudioFade]);
+  }, [projectId, applyAudioFade]);
 
 
 
@@ -536,21 +509,26 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               </span>
             </div>
 
-            {/* Multi-video Switcher Tabs (when more than 1 main video exists) */}
+            {/* Multi-video Quick Navigation Tabs (when more than 1 main video exists) */}
             {allVideos.length > 1 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-white/40 uppercase tracking-widest text-[10px] hidden sm:inline mr-1">
                   {"//"} video ({allVideos.length}):
                 </span>
                 {allVideos.map((vid, vIdx) => {
-                  const isSelected = selectedVideoIndex === vIdx;
+                  const isSelected = activeSectionIndex === vIdx;
                   return (
                     <button
                       key={vIdx}
                       type="button"
                       onClick={() => {
-                        setSelectedVideoIndex(vIdx);
-                        setIsPlaying(true);
+                        setActiveSectionIndex(vIdx);
+                        if (vIdx === 0) {
+                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        } else {
+                          const el = document.getElementById(`secondary-video-${vIdx + 1}`);
+                          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
                       }}
                       className={`px-2.5 py-1 rounded-md border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
                         isSelected
@@ -572,9 +550,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           {/* Framer Video Player */}
           <div className="w-full flex justify-center">
             <FramerVideoPlayer
-              key={activeVideo?.url || "main-player-video"}
+              key={primaryVideo?.url || "main-player-video"}
               ref={videoRef}
-              src={activeVideo?.url || project.fullVideoUrl || project.videoPreviewUrl}
+              src={primaryVideo?.url || project.fullVideoUrl || project.videoPreviewUrl}
               poster={activeVideoPoster}
               autoPlay={true}
               muted={isMuted}
@@ -582,7 +560,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               cornerRadius={14}
               progressColor="#ffffff"
               onReady={() => setIsProjectMediaReady(true)}
-              onPlayStateChange={(playing) => setIsPlaying(playing)}
+              onPlayStateChange={(playing) => {
+                setIsPlaying(playing);
+                if (playing) handleMainPlay();
+              }}
               onMuteStateChange={(m) => setIsMuted(m)}
               onAspectRatioChange={(vert, ratio) => {
                 setIsVertical(vert);
@@ -625,40 +606,47 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   {project.subtitle.en || project.subtitle.it}
                 </p>
               )}
-
-              {/* Multi-video Visual Grid (when more than 1 main video exists) */}
-              {allVideos.length > 1 && (
-                <div className="pt-6 sm:pt-8 border-t border-white/10 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
-                    <span>{"//"} tutti i video ({allVideos.length})</span>
-                    <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
-                      seleziona per riprodurre nel player
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                    {allVideos.map((vid, vIdx) => (
-                      <VideoCardItem
-                        key={vIdx}
-                        vid={vid}
-                        vIdx={vIdx}
-                        isSelected={selectedVideoIndex === vIdx}
-                        fallbackPoster={project.posterImage}
-                        onThumbnailCaptured={handleThumbnailCaptured}
-                        onSelect={() => {
-                          setSelectedVideoIndex(vIdx);
-                          setIsPlaying(true);
-                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </section>
 
-        {/* ── SECTION 2: SOTTO TUTTE LE FOTO COLLEGATE CON IL VIDEO (Connected Stills) ── */}
+        {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro con cinema player dedicato) ── */}
+        {secondaryVideos.length > 0 && (
+          <section className="space-y-8 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10">
+            <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse" />
+                {"//"} video secondari ({secondaryVideos.length})
+              </span>
+              <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
+                scorri per vedere tutti i video
+              </span>
+            </div>
+
+            <div className="flex flex-col space-y-10 sm:space-y-16 w-full">
+              {secondaryVideos.map((vid, sIdx) => {
+                const globalIdx = sIdx + 1; // 1-based index (e.g. 2 for Film 02)
+                return (
+                  <SecondaryVideoBlock
+                    key={vid.url || sIdx}
+                    vid={vid}
+                    index={globalIdx + 1}
+                    isMuted={isMuted}
+                    onMuteChange={(m) => setIsMuted(m)}
+                    onPlay={() => handleSecondaryPlay(sIdx)}
+                    videoRefCallback={(el) => {
+                      secondaryVideoRefs.current[sIdx] = el;
+                    }}
+                    fallbackPoster={project.posterImage}
+                    onThumbnailCaptured={handleThumbnailCaptured}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── SECTION 3: SOTTO TUTTE LE FOTO COLLEGATE CON IL VIDEO (Connected Stills) ── */}
         <section ref={stillsRef} className="space-y-4 sm:space-y-6 pt-6 sm:pt-8 border-t border-white/10">
           <div className="flex items-baseline justify-between">
             <h3 className="text-xl sm:text-2xl font-light text-white italic tracking-tight lowercase transition-all duration-300">
