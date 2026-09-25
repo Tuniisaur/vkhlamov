@@ -19,7 +19,6 @@ import LogoPreloader from "@/components/LogoPreloader";
 
 interface SecondaryVideoBlockProps {
   vid: { url: string; title: string; duration?: string; poster?: string };
-  index: number;
   isMuted: boolean;
   onMuteChange: (m: boolean) => void;
   onPlay: () => void;
@@ -30,7 +29,6 @@ interface SecondaryVideoBlockProps {
 
 function SecondaryVideoBlock({
   vid,
-  index,
   isMuted,
   onMuteChange,
   onPlay,
@@ -43,7 +41,6 @@ function SecondaryVideoBlock({
   const [posterUrl, setPosterUrl] = useState<string | undefined>(
     vid.poster ? resolveMediaUrl(vid.poster) : cachedThumbnail || undefined
   );
-  const [detectedDuration, setDetectedDuration] = useState<string | null>(vid.duration || null);
 
   useEffect(() => {
     if (vid.poster) {
@@ -80,50 +77,21 @@ function SecondaryVideoBlock({
   }, [vid.url, vid.poster, resolvedUrl, fallbackPoster, onThumbnailCaptured]);
 
   return (
-    <div
-      id={`secondary-video-${index}`}
-      className="scroll-mt-24 sm:scroll-mt-28 space-y-2.5 sm:space-y-3.5 w-full animate-cinema-fade"
-    >
-      {/* Top Bar above Secondary Video: index & title on left, duration on right */}
-      <div className="flex items-center justify-between text-xs font-mono tracking-wider px-1">
-        <div className="flex items-center gap-2 text-white/80">
-          <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
-          <span className="uppercase font-medium text-white/90">
-            0{index} // {vid.title}
-          </span>
-        </div>
-        {(detectedDuration || vid.duration) && (
-          <span className="text-white/40 font-mono text-[11px] sm:text-xs">
-            {detectedDuration || vid.duration}
-          </span>
-        )}
-      </div>
-
-      {/* Cinema Player for Secondary Video */}
-      <div className="w-full flex justify-center">
-        <FramerVideoPlayer
-          ref={videoRefCallback}
-          src={vid.url}
-          poster={posterUrl}
-          autoPlay={false}
-          muted={isMuted}
-          loop={true}
-          cornerRadius={14}
-          progressColor="#ffffff"
-          onPlayStateChange={(playing) => {
-            if (playing) onPlay();
-          }}
-          onMuteStateChange={onMuteChange}
-          onTimeUpdate={(_, dur) => {
-            if (!detectedDuration && dur && !isNaN(dur) && isFinite(dur)) {
-              const durStr = formatVideoDuration(dur);
-              if (durStr && durStr !== "00:00") {
-                setDetectedDuration(durStr);
-              }
-            }
-          }}
-        />
-      </div>
+    <div className="w-full flex justify-center animate-cinema-fade">
+      <FramerVideoPlayer
+        ref={videoRefCallback}
+        src={vid.url}
+        poster={posterUrl}
+        autoPlay={false}
+        muted={isMuted}
+        loop={true}
+        cornerRadius={14}
+        progressColor="#ffffff"
+        onPlayStateChange={(playing) => {
+          if (playing) onPlay();
+        }}
+        onMuteStateChange={onMuteChange}
+      />
     </div>
   );
 }
@@ -186,12 +154,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const primaryVideo = allVideos[0];
   const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
 
-  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [capturedThumbnails, setCapturedThumbnails] = useState<Record<string, string>>({});
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const handleMainPlay = useCallback(() => {
-    setActiveSectionIndex(0);
     // Pause all secondary videos so there is no simultaneous playback
     secondaryVideoRefs.current.forEach((v) => {
       if (v && !v.paused) v.pause();
@@ -199,7 +165,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, []);
 
   const handleSecondaryPlay = useCallback((sIdx: number) => {
-    setActiveSectionIndex(sIdx + 1);
     // Pause main top video
     if (videoRef.current && !videoRef.current.paused) {
       videoRef.current.pause();
@@ -247,7 +212,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   // Reset states when navigating to another project
   useEffect(() => {
-    setActiveSectionIndex(0);
     setIsProjectMediaReady(false);
     setIsVertical(false);
     setVideoAspectRatio(null);
@@ -500,51 +464,14 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
         {/* ── SECTION 1: IN PRIMO PIANO IL VIDEO (Widescreen Cinema Player, No Boxes, No Heavy Borders) ── */}
         <section className="space-y-3 sm:space-y-4 animate-cinema-fade">
-          {/* Top Bar above Video: Project Index/Title on Left + Multi-video Switcher on Right */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono tracking-wider pt-1">
+          {/* Top Bar above Video: Project Index/Title on Left */}
+          <div className="flex items-center justify-between gap-2 text-xs font-mono tracking-wider pt-1">
             <div className="flex items-center gap-2 text-white/70">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span className="uppercase font-medium">
                 0{currentIndex + 1} {"//"} {project.title.en || project.title.it}
               </span>
             </div>
-
-            {/* Multi-video Quick Navigation Tabs (when more than 1 main video exists) */}
-            {allVideos.length > 1 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-white/40 uppercase tracking-widest text-[10px] hidden sm:inline mr-1">
-                  {"//"} video ({allVideos.length}):
-                </span>
-                {allVideos.map((vid, vIdx) => {
-                  const isSelected = activeSectionIndex === vIdx;
-                  return (
-                    <button
-                      key={vIdx}
-                      type="button"
-                      onClick={() => {
-                        setActiveSectionIndex(vIdx);
-                        if (vIdx === 0) {
-                          videoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        } else {
-                          const el = document.getElementById(`secondary-video-${vIdx + 1}`);
-                          el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }
-                      }}
-                      className={`px-2.5 py-1 rounded-md border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isSelected
-                          ? "border-white text-white bg-white/10 font-bold shadow-[0_0_12px_rgba(255,255,255,0.12)]"
-                          : "border-white/10 text-white/60 hover:text-white hover:border-white/30 bg-black/40"
-                      }`}
-                    >
-                      <span>0{vIdx + 1} // {vid.title}</span>
-                      {vid.duration && (
-                        <span className="text-[10px] opacity-60 font-normal hidden md:inline">{vid.duration}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* Framer Video Player */}
@@ -610,39 +537,23 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </div>
         </section>
 
-        {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro con cinema player dedicato) ── */}
+        {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro senza scritte né titoli) ── */}
         {secondaryVideos.length > 0 && (
-          <section className="space-y-8 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10">
-            <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50">
-              <span className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse" />
-                {"//"} video secondari ({secondaryVideos.length})
-              </span>
-              <span className="text-[10px] text-white/30 lowercase hidden sm:inline">
-                scorri per vedere tutti i video
-              </span>
-            </div>
-
-            <div className="flex flex-col space-y-10 sm:space-y-16 w-full">
-              {secondaryVideos.map((vid, sIdx) => {
-                const globalIdx = sIdx + 1; // 1-based index (e.g. 2 for Film 02)
-                return (
-                  <SecondaryVideoBlock
-                    key={vid.url || sIdx}
-                    vid={vid}
-                    index={globalIdx + 1}
-                    isMuted={isMuted}
-                    onMuteChange={(m) => setIsMuted(m)}
-                    onPlay={() => handleSecondaryPlay(sIdx)}
-                    videoRefCallback={(el) => {
-                      secondaryVideoRefs.current[sIdx] = el;
-                    }}
-                    fallbackPoster={project.posterImage}
-                    onThumbnailCaptured={handleThumbnailCaptured}
-                  />
-                );
-              })}
-            </div>
+          <section className="space-y-6 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10 flex flex-col items-center w-full">
+            {secondaryVideos.map((vid, sIdx) => (
+              <SecondaryVideoBlock
+                key={vid.url || sIdx}
+                vid={vid}
+                isMuted={isMuted}
+                onMuteChange={(m) => setIsMuted(m)}
+                onPlay={() => handleSecondaryPlay(sIdx)}
+                videoRefCallback={(el) => {
+                  secondaryVideoRefs.current[sIdx] = el;
+                }}
+                fallbackPoster={project.posterImage}
+                onThumbnailCaptured={handleThumbnailCaptured}
+              />
+            ))}
           </section>
         )}
 
