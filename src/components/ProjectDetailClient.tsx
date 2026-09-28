@@ -257,21 +257,43 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, []);
 
   const applyAudioFade = useCallback(() => {
-    if (!videoRef.current) return;
-    if (isMutedRef.current) {
-      if (!videoRef.current.muted) videoRef.current.muted = true;
-      if (videoRef.current.volume !== 0) videoRef.current.volume = 0;
-      return;
+    const vol = isMutedRef.current ? 0 : calculateScrollVolume();
+    const muted = vol <= 0.01;
+
+    // Apply to main video
+    if (videoRef.current) {
+      if (isMutedRef.current) {
+        if (!videoRef.current.muted) videoRef.current.muted = true;
+        if (videoRef.current.volume !== 0) videoRef.current.volume = 0;
+      } else {
+        videoRef.current.muted = muted;
+        videoRef.current.volume = muted ? 0 : Math.round(vol * 100) / 100;
+      }
     }
 
-    const vol = calculateScrollVolume();
-    if (vol <= 0.01) {
-      videoRef.current.volume = 0;
-      videoRef.current.muted = true;
-    } else {
-      videoRef.current.muted = false;
-      videoRef.current.volume = Math.round(vol * 100) / 100;
-    }
+    // Apply to secondary videos — each one also fades when it scrolls off the top
+    secondaryVideoRefs.current.forEach((secVid) => {
+      if (!secVid || secVid.paused) return;
+      if (isMutedRef.current) {
+        if (!secVid.muted) secVid.muted = true;
+        if (secVid.volume !== 0) secVid.volume = 0;
+        return;
+      }
+
+      // Per-video fade: also fade out if THIS secondary video scrolls off the top
+      let secVol = vol;
+      const rect = secVid.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (rect.bottom <= 0) {
+        secVol = 0;
+      } else if (rect.bottom < vh * 0.45) {
+        secVol = Math.min(secVol, Math.max(0, rect.bottom / (vh * 0.45)));
+      }
+
+      const secMuted = secVol <= 0.01;
+      secVid.muted = secMuted;
+      secVid.volume = secMuted ? 0 : Math.round(secVol * 100) / 100;
+    });
   }, [calculateScrollVolume]);
 
   useEffect(() => {
