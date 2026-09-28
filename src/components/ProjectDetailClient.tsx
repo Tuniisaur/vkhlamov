@@ -343,7 +343,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           }
         });
     }
-  }, [projectId, applyAudioFade]);
+  }, [projectId, applyAudioFade, isLoading]);
 
 
 
@@ -406,15 +406,35 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </Link>
         </div>
 
-        {/* ── SECTION 1: IN PRIMO PIANO IL VIDEO (Widescreen Cinema Player, No Boxes, No Heavy Borders) ── */}
-        <section className="space-y-3 sm:space-y-4 animate-cinema-fade">
-          {/* Top Bar above Video: Project Index/Title on Left */}
-          <div className="flex items-center justify-between gap-2 text-xs font-mono tracking-wider pt-1">
-            <div className="flex items-center gap-2 text-white/70">
+        {/* ── SECTION 1: IN PRIMO PIANO IL TITOLO E IL VIDEO ── */}
+        <section className="space-y-4 sm:space-y-6 animate-cinema-fade">
+          {/* Project Title & Metadata at the top */}
+          <div className={`mx-auto transition-all duration-500 space-y-2 sm:space-y-3 ${isVertical ? "max-w-2xl" : "w-full"}`}>
+            <div className="flex items-center gap-2 text-xs font-mono text-white/70 tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span className="uppercase font-medium">
-                0{currentIndex + 1} {"//"} {project.title.en || project.title.it}
+                0{currentIndex + 1}
               </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
+              {project.title.en || project.title.it}
+            </h1>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
+              <span>{project.year}</span>
+              {project.location && (
+                <>
+                  <span>•</span>
+                  <span className="text-white/80">{project.location}</span>
+                </>
+              )}
+              {(detectedDuration || project.duration) && (
+                <>
+                  <span>•</span>
+                  <span>{detectedDuration || project.duration}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -449,31 +469,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 }
               }}
             />
-          </div>
-
-          <div className={`mx-auto transition-all duration-500 space-y-4 ${isVertical ? "max-w-2xl" : "w-full"}`}>
-            {/* Minimal Editorial Details (Zero Cards, Pure Typography) */}
-            <div className="pt-2 sm:pt-4 max-w-4xl space-y-2 sm:space-y-3">
-              <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
-                {project.title.en || project.title.it}
-              </h2>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
-                <span>{project.year}</span>
-                {project.location && (
-                  <>
-                    <span>•</span>
-                    <span className="text-white/80">{project.location}</span>
-                  </>
-                )}
-                {(detectedDuration || project.duration) && (
-                  <>
-                    <span>•</span>
-                    <span>{detectedDuration || project.duration}</span>
-                  </>
-                )}
-              </div>
-
-            </div>
           </div>
         </section>
 

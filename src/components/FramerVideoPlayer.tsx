@@ -327,6 +327,33 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     onTimeUpdate?.(t, d);
   };
 
+  const startPlayback = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    try {
+      await video.play();
+      setIsPlaying(true);
+      setShowReplay(false);
+      onPlayStateChange?.(true);
+    } catch {
+      // Browser blocked unmuted autoplay - immediately retry with muted audio so video plays automatically
+      try {
+        video.muted = true;
+        video.defaultMuted = true;
+        setIsMuted(true);
+        onMuteStateChange?.(true);
+        await video.play();
+        setIsPlaying(true);
+        setShowReplay(false);
+        onPlayStateChange?.(true);
+      } catch {
+        setIsPlaying(false);
+        onPlayStateChange?.(false);
+      }
+    }
+  }, [onPlayStateChange, onMuteStateChange]);
+
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -339,6 +366,16 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     }
     updateProgressDisplay(video.currentTime, video.duration || 0);
     onReady?.();
+    if (autoPlay && video.paused) {
+      startPlayback();
+    }
+  };
+
+  const handleCanPlay = () => {
+    onReady?.();
+    if (autoPlay && videoRef.current && videoRef.current.paused) {
+      startPlayback();
+    }
   };
 
   const handleEnded = () => {
@@ -511,6 +548,13 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     }
   }, [muted]);
 
+  // Reliable autoplay effect on mount/src change
+  useEffect(() => {
+    if (autoPlay && videoRef.current) {
+      startPlayback();
+    }
+  }, [resolvedSrc, autoPlay, startPlayback]);
+
   const tapSide = (clientX: number) => {
     const catchEl = rootRef.current?.querySelector(".click-catch");
     if (!catchEl) return "center";
@@ -572,7 +616,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               preload="auto"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
-              onCanPlay={onReady}
+              onCanPlay={handleCanPlay}
               onPlaying={onReady}
               onPlay={() => {
                 setIsPlaying(true);
@@ -642,7 +686,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               }
               if (isHoldingRef.current) {
                 isHoldingRef.current = false;
-                if (videoRef.current) videoRef.current.playbackRate = currentSpeed;
+                if (videoRef.current) videoRef.current.playbackRate = 1;
                 holdBadgeRef.current?.classList.remove("show");
                 didHoldRef.current = false;
                 return;
