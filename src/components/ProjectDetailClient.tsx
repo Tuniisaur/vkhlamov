@@ -236,12 +236,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
-  const calculateScrollVolume = useCallback((): number => {
+  // Volume factor based purely on distance to "stills & frames"
+  const getStillsFadeVolume = useCallback((): number => {
     if (typeof window === "undefined") return 1;
     const vh = window.innerHeight;
-    let volume = 1;
 
-    // 1. Calculate proximity to "stills & frames" section
     if (stillsRef.current) {
       const stillsRect = stillsRef.current.getBoundingClientRect();
       // When stills section approaches the bottom of the viewport (110% of vh),
@@ -250,43 +249,41 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       const fadeEnd = vh * 0.35;
 
       if (stillsRect.top <= fadeEnd) {
-        volume = 0;
+        return 0;
       } else if (stillsRect.top < fadeStart) {
-        const factor = (stillsRect.top - fadeEnd) / (fadeStart - fadeEnd);
-        volume = Math.min(volume, factor);
+        return Math.max(0, Math.min(1, (stillsRect.top - fadeEnd) / (fadeStart - fadeEnd)));
       }
     }
 
-    // 2. Also ensure volume fades out if the video player scrolls off the top of the viewport
-    if (videoRef.current) {
-      const videoRect = videoRef.current.getBoundingClientRect();
-      if (videoRect.bottom <= 0) {
-        volume = 0;
-      } else if (videoRect.bottom < vh * 0.45) {
-        const factor = Math.max(0, videoRect.bottom / (vh * 0.45));
-        volume = Math.min(volume, factor);
-      }
-    }
-
-    return Math.max(0, Math.min(1, volume));
+    return 1;
   }, []);
 
   const applyAudioFade = useCallback(() => {
-    const vol = isMutedRef.current ? 0 : calculateScrollVolume();
-    const muted = vol <= 0.01;
+    const stillsVol = isMutedRef.current ? 0 : getStillsFadeVolume();
 
-    // Apply to main video
+    // 1. Primary video: fades when scrolling down towards stills & frames, or if it scrolls off the top
     if (videoRef.current) {
       if (isMutedRef.current) {
         if (!videoRef.current.muted) videoRef.current.muted = true;
         if (videoRef.current.volume !== 0) videoRef.current.volume = 0;
       } else {
+        const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+        let mainVol = stillsVol;
+        const videoRect = videoRef.current.getBoundingClientRect();
+        if (videoRect.bottom <= 0) {
+          mainVol = 0;
+        } else if (videoRect.bottom < vh * 0.45) {
+          mainVol = Math.min(mainVol, Math.max(0, videoRect.bottom / (vh * 0.45)));
+        }
+
+        const muted = mainVol <= 0.01;
         videoRef.current.muted = muted;
-        videoRef.current.volume = muted ? 0 : Math.round(vol * 100) / 100;
+        videoRef.current.volume = muted ? 0 : Math.round(mainVol * 100) / 100;
       }
     }
 
-    // Apply to secondary videos — each one also fades when it scrolls off the top
+    // 2. Secondary videos: volume is NOT affected by the primary video position or scrolling up.
+    // It reduces ONLY when scrolling towards the "stills & frames" section.
     secondaryVideoRefs.current.forEach((secVid) => {
       if (!secVid || secVid.paused) return;
       if (isMutedRef.current) {
@@ -295,21 +292,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         return;
       }
 
-      // Per-video fade: also fade out if THIS secondary video scrolls off the top
-      let secVol = vol;
-      const rect = secVid.getBoundingClientRect();
-      const vh = window.innerHeight;
-      if (rect.bottom <= 0) {
-        secVol = 0;
-      } else if (rect.bottom < vh * 0.45) {
-        secVol = Math.min(secVol, Math.max(0, rect.bottom / (vh * 0.45)));
-      }
-
-      const secMuted = secVol <= 0.01;
+      const secMuted = stillsVol <= 0.01;
       secVid.muted = secMuted;
-      secVid.volume = secMuted ? 0 : Math.round(secVol * 100) / 100;
+      secVid.volume = secMuted ? 0 : Math.round(stillsVol * 100) / 100;
     });
-  }, [calculateScrollVolume]);
+  }, [getStillsFadeVolume]);
 
   useEffect(() => {
     const checkBottomOffset = () => {
@@ -460,6 +447,16 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </div>
           </div>
 
+          {/* Primary video title (version label) — shown at the top of the video player when explicitly set */}
+          {primaryVideo?.title && primaryVideo.title !== "Main Film" && (
+            <div className="w-full max-w-3xl mx-auto flex items-center gap-2 px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+              <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
+                {primaryVideo.title}
+              </h4>
+            </div>
+          )}
+
           {/* Framer Video Player */}
           <div className="w-full flex justify-center">
             <FramerVideoPlayer
@@ -491,16 +488,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               }}
             />
           </div>
-
-          {/* Primary video title (version label) — shown only when explicitly set and not a generic placeholder */}
-          {primaryVideo?.title && primaryVideo.title !== "Main Film" && (
-            <div className="w-full max-w-3xl mx-auto flex items-center gap-2 px-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-              <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
-                {primaryVideo.title}
-              </h4>
-            </div>
-          )}
 
           {/* Primary video description */}
           {primaryVideo?.description && (
