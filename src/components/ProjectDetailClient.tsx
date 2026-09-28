@@ -32,7 +32,15 @@ function SecondaryVideoBlock({
   const posterUrl = vid.poster ? resolveMediaUrl(vid.poster) : undefined;
 
   return (
-    <div className="w-full flex flex-col items-center gap-4 animate-cinema-fade">
+    <div className="w-full flex flex-col items-center gap-3 animate-cinema-fade">
+      {vid.title && (
+        <div className="w-full max-w-3xl flex items-center gap-2 px-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+          <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
+            {vid.title}
+          </h4>
+        </div>
+      )}
       <FramerVideoPlayer
         ref={videoRefCallback}
         src={vid.url}
@@ -483,6 +491,16 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               }}
             />
           </div>
+
+          {/* Primary video title (version label) — shown only when explicitly set and not a generic placeholder */}
+          {primaryVideo?.title && primaryVideo.title !== "Main Film" && (
+            <div className="w-full max-w-3xl mx-auto flex items-center gap-2 px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+              <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
+                {primaryVideo.title}
+              </h4>
+            </div>
+          )}
 
           {/* Primary video description */}
           {primaryVideo?.description && (
