@@ -707,15 +707,19 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               didHoldRef.current = false;
               if (touchStartRef.current.moved) return;
 
-              // Check BEFORE revealing — first tap shows controls only
               const controlsEl = rootRef.current?.querySelector(".controls");
               const controlsWereHidden = !controlsEl?.classList.contains("reveal");
+              const video = videoRef.current;
 
               // Always reveal controls on tap (mobile has no hover/mousemove)
               showControls();
 
+              // First tap while controls hidden AND video is paused → start playback
+              // immediately (preserves iOS Safari user-gesture context).
               if (controlsWereHidden) {
-                // First tap: just show the player controls, don't act
+                if (video && video.paused) {
+                  togglePlay();
+                }
                 return;
               }
 
@@ -740,19 +744,15 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
               lastTapTRef.current = now;
               lastTapSideRef.current = side;
-              if (side === "center") {
-                if (singleTapTimerRef.current) {
-                  clearTimeout(singleTapTimerRef.current);
-                  singleTapTimerRef.current = null;
-                }
-                togglePlay();
-              } else {
-                if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-                singleTapTimerRef.current = setTimeout(() => {
-                  singleTapTimerRef.current = null;
-                  togglePlay();
-                }, 300);
+
+              // Always call togglePlay() synchronously — never inside a setTimeout —
+              // so that iOS Safari recognises this as a direct user gesture and
+              // allows video.play() to succeed.
+              if (singleTapTimerRef.current) {
+                clearTimeout(singleTapTimerRef.current);
+                singleTapTimerRef.current = null;
               }
+              togglePlay();
             }}
           />
 
