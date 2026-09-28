@@ -15,7 +15,7 @@ import FramerVideoPlayer from "@/components/FramerVideoPlayer";
 import LogoPreloader from "@/components/LogoPreloader";
 
 interface SecondaryVideoBlockProps {
-  vid: { url: string; title: string; duration?: string; poster?: string };
+  vid: { url: string; title: string; duration?: string; poster?: string; description?: string };
   isMuted: boolean;
   onMuteChange: (m: boolean) => void;
   onPlay: () => void;
@@ -32,7 +32,7 @@ function SecondaryVideoBlock({
   const posterUrl = vid.poster ? resolveMediaUrl(vid.poster) : undefined;
 
   return (
-    <div className="w-full flex justify-center animate-cinema-fade">
+    <div className="w-full flex flex-col items-center gap-4 animate-cinema-fade">
       <FramerVideoPlayer
         ref={videoRefCallback}
         src={vid.url}
@@ -47,6 +47,11 @@ function SecondaryVideoBlock({
         }}
         onMuteStateChange={onMuteChange}
       />
+      {vid.description && (
+        <p className="w-full max-w-3xl text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
+          {vid.description}
+        </p>
+      )}
     </div>
   );
 }
@@ -70,7 +75,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   // Multi-video support: parse all main videos of the project
   const allVideos = useMemo(() => {
-    const list: { url: string; title: string; duration?: string; poster?: string }[] = [];
+    const list: { url: string; title: string; duration?: string; poster?: string; description?: string }[] = [];
     if (Array.isArray(project?.videos) && project.videos.length > 0) {
       project.videos.forEach((v, idx) => {
         if (typeof v === "string" && (v as string).trim()) {
@@ -91,6 +96,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             title: v.title?.trim() || `Film 0${idx + 1}`,
             duration: v.duration?.trim(),
             poster: explicitPoster?.trim() || undefined, // Extracted frame if no explicit cover
+            description: v.description?.trim() || undefined,
           });
         }
       });
@@ -448,6 +454,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               }}
             />
           </div>
+
+          {/* Primary video description */}
+          {primaryVideo?.description && (
+            <p className="w-full max-w-3xl mx-auto text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide px-1">
+              {primaryVideo.description}
+            </p>
+          )}
         </section>
 
         {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro senza scritte né titoli) ── */}

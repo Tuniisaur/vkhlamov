@@ -13,6 +13,7 @@ export interface ProjectVideo {
   posterImage?: string;
   coverImage?: string;
   poster?: string;
+  description?: string;
 }
 
 export interface LocalizedProject {

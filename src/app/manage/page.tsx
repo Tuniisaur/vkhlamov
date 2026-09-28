@@ -2620,6 +2620,22 @@ export default function ManagePage() {
                                 />
                               </div>
 
+                              {/* Video Description */}
+                              <div>
+                                <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                  Descrizione video <span className="normal-case text-white/25">(opzionale — visualizzata sotto il player)</span>
+                                </label>
+                                <textarea
+                                  value={vid.description || ""}
+                                  placeholder="Descrivi questo video: tecnica di ripresa, emozioni, contesto narrativo…"
+                                  rows={2}
+                                  onChange={(e) =>
+                                    handleUpdateMainVideo(vIdx, { description: e.target.value })
+                                  }
+                                  className="w-full bg-transparent border-b border-white/15 py-1 text-sm text-white/80 focus:outline-none focus:border-white transition-colors placeholder:text-white/20 resize-none leading-relaxed"
+                                />
+                              </div>
+
                               {/* Video Cover / Poster Field */}
                               <div>
                                 <div className="flex items-center justify-between">
