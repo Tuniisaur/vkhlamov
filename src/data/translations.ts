@@ -18,7 +18,7 @@ export interface ProjectVideo {
 export interface LocalizedProject {
   id: string;
   title: { en: string; it: string };
-  subtitle: { en: string; it: string };
+
   category?: "all" | "gt" | "rally" | "commercial" | "pursuit" | string;
   categoryLabel?: { en: string; it: string };
   year: string;
@@ -53,10 +53,7 @@ export const LOCALIZED_PROJECTS: LocalizedProject[] = [
       "en": "// LE MANS 2026",
       "it": "// LE MANS 2026"
     },
-    "subtitle": {
-      "en": "24 Hours of Le Mans 2026",
-      "it": "24 Hours of Le Mans 2026"
-    },
+
     "category": "gt",
     "categoryLabel": {
       "en": "FORMULA & GT",

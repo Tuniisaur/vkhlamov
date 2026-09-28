@@ -659,6 +659,9 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               didHoldRef.current = false;
               if (touchStartRef.current.moved) return;
 
+              // Always reveal controls on tap (mobile has no hover/mousemove)
+              showControls();
+
               const touch = e.changedTouches[0];
               const side = tapSide(touch.clientX);
               const now = Date.now();
@@ -680,6 +683,15 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
               lastTapTRef.current = now;
               lastTapSideRef.current = side;
+
+              // On first tap: only show controls; on second tap: act
+              const controlsEl = rootRef.current?.querySelector(".controls");
+              const controlsWereHidden = !controlsEl?.classList.contains("reveal");
+              if (controlsWereHidden) {
+                // Controls are now revealed — don't act yet
+                return;
+              }
+
               if (side === "center") {
                 if (singleTapTimerRef.current) {
                   clearTimeout(singleTapTimerRef.current);

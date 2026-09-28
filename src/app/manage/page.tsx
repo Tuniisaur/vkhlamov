@@ -473,10 +473,7 @@ export default function ManagePage() {
         en: "",
         it: "",
       },
-      subtitle: {
-        en: "",
-        it: "",
-      },
+
       year: new Date().getFullYear().toString(),
       client: "",
       location: "",
@@ -1192,9 +1189,7 @@ export default function ManagePage() {
                     <h3 className="text-lg sm:text-xl font-light tracking-tight text-white">
                       {proj.title.en || proj.title.it}
                     </h3>
-                    <p className="text-xs text-white/50 font-light line-clamp-1">
-                      {proj.subtitle.en || proj.subtitle.it}
-                    </p>
+
                     <p className="text-xs font-mono text-white/30 pt-1">
                       stills collegate: {proj.stills?.length || 0}
                     </p>
@@ -2295,24 +2290,7 @@ export default function ManagePage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-white/40 block">sottotitolo / subtitle</label>
-                  <input
-                    type="text"
-                    value={editingProject.subtitle.en || editingProject.subtitle.it || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditingProject({
-                        ...editingProject,
-                        subtitle: {
-                          en: val,
-                          it: val,
-                        },
-                      });
-                    }}
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
+
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

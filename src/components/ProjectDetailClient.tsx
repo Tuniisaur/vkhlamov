@@ -472,11 +472,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   </>
                 )}
               </div>
-              {project.subtitle && (project.subtitle.en || project.subtitle.it) && (
-                <p className="text-sm sm:text-base text-white/70 font-light tracking-wide pt-1">
-                  {project.subtitle.en || project.subtitle.it}
-                </p>
-              )}
+
             </div>
           </div>
         </section>

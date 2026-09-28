@@ -11,7 +11,7 @@ interface StoryItem {
   id: string;
   index: string;
   title: string;
-  subtitle: string;
+
   video: string;
   poster: string;
   project: LocalizedProject;
@@ -49,8 +49,7 @@ function StorySkeletonCard({ index }: { index: string }) {
         <div className="col-span-7 space-y-2">
           {/* Title skeleton */}
           <div className="h-5 w-3/4 rounded bg-white/[0.08] animate-pulse" />
-          {/* Subtitle skeleton */}
-          <div className="h-3.5 w-1/2 rounded bg-white/[0.04] animate-pulse" />
+
         </div>
       </div>
     </div>
@@ -242,9 +241,7 @@ function StoryCard({
               {item.title}
             </h3>
           </div>
-          <p className="text-neutral-400 mt-1 text-xs font-light leading-relaxed line-clamp-2">
-            {item.subtitle}
-          </p>
+
         </div>
       </div>
     </Link>
@@ -262,7 +259,7 @@ export default function MeanderGallery({
       id: p.id,
       index: String(idx + 1).padStart(2, "0"),
       title: p.title.en || p.title.it || "Cinema Project",
-      subtitle: p.title.en || p.subtitle.en || p.title.it || p.subtitle.it,
+
       video: p.videoPreviewUrl || p.videos?.[0]?.url || p.fullVideoUrl || "",
       poster: p.posterImage || p.stills?.[0]?.url || "",
       project: p,

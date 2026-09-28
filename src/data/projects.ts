@@ -1,7 +1,7 @@
 export interface Project {
   id: string;
   title: string;
-  subtitle: string;
+
   category: "all" | "gt" | "rally" | "commercial" | "pursuit";
   categoryLabel: string;
   year: string;
@@ -31,7 +31,7 @@ export const PROJECTS: Project[] = [
   {
     id: "formula-apex-hunter",
     title: "APEX HUNTER // FORMULA APEX",
-    subtitle: "Open Wheel High-Speed Pursuit Cinema",
+
     category: "gt",
     categoryLabel: "FORMULA & GT",
     year: "2026",
@@ -53,7 +53,7 @@ export const PROJECTS: Project[] = [
   {
     id: "hypercar-track-pursuit",
     title: "RADICAL OVERTAKE // TRACK PURSUIT",
-    subtitle: "High-Speed Dynamic Track Pursuit",
+
     category: "pursuit",
     categoryLabel: "HIGH-SPEED PURSUIT",
     year: "2026",
@@ -75,7 +75,7 @@ export const PROJECTS: Project[] = [
   {
     id: "rally-wrc-dust",
     title: "GRAVEL APEX // WRC TERRA SARDEGNA",
-    subtitle: "Rally World Championship Cinematic Recap",
+
     category: "rally",
     categoryLabel: "RALLY & DIRT",
     year: "2025",
@@ -97,7 +97,7 @@ export const PROJECTS: Project[] = [
   {
     id: "hypercar-commercial-monolith",
     title: "THE MONOLITH // HYPERCAR REEL",
-    subtitle: "Global Commercial Launch Campaign",
+
     category: "commercial",
     categoryLabel: "COMMERCIAL & SHOWREEL",
     year: "2026",
