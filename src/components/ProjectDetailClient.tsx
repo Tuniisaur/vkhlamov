@@ -56,6 +56,13 @@ function SecondaryVideoBlock({
   );
 }
 
+/** Resolve a title field that can be either a plain string or a localized { en, it } object */
+function getTitle(title: string | { en?: string; it?: string } | undefined): string {
+  if (!title) return "";
+  if (typeof title === "string") return title;
+  return title.en || title.it || "";
+}
+
 export default function ProjectDetailClient({ projectId }: { projectId: string }) {
   const { projects, settings, isLoading } = useSiteData();
   const currentProjects = projects.length > 0 ? projects : LOCALIZED_PROJECTS;
@@ -425,7 +432,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </div>
 
             <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white transition-all duration-500">
-              {project.title.en || project.title.it}
+              {getTitle(project.title)}
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm font-mono text-white/50 uppercase tracking-widest transition-colors duration-300">
@@ -540,7 +547,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             className="min-h-[44px] hover:text-white hover:italic transition-all duration-300 transform sm:hover:-translate-x-2 flex items-center gap-2 group cursor-pointer"
           >
             <span className="transition-transform duration-300 group-hover:-translate-x-1 shrink-0">[ ← prev:</span>
-            <span className="truncate">{prevProject.title.en || prevProject.title.it} ]</span>
+            <span className="truncate">{getTitle(prevProject.title)} ]</span>
           </Link>
 
           <Link
@@ -555,7 +562,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             scroll={true}
             className="min-h-[44px] hover:text-white hover:italic transition-all duration-300 transform sm:hover:translate-x-2 flex items-center justify-end gap-2 group cursor-pointer self-end sm:self-auto text-right"
           >
-            <span className="truncate">[ next: {nextProject.title.en || nextProject.title.it}</span>
+            <span className="truncate">[ next: {getTitle(nextProject.title)}</span>
             <span className="transition-transform duration-300 group-hover:translate-x-1 shrink-0">→ ]</span>
           </Link>
         </section>
