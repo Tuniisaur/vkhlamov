@@ -89,8 +89,20 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
   const didHoldRef = useRef(false);
   const touchStartRef = useRef({ x: 0, y: 0, moved: false });
   const lastScrubTimeRef = useRef(-1);
+  const hasAutoPlayedRef = useRef(false);
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  const onMuteStateChangeRef = useRef(onMuteStateChange);
+
+  useEffect(() => {
+    onPlayStateChangeRef.current = onPlayStateChange;
+    onMuteStateChangeRef.current = onMuteStateChange;
+  });
 
   const resolvedSrc = resolveMediaUrl(src);
+
+  useEffect(() => {
+    hasAutoPlayedRef.current = false;
+  }, [resolvedSrc]);
   const resolvedPoster = poster ? resolveMediaUrl(poster) : undefined;
 
   // Format seconds to mm:ss or hh:mm:ss
@@ -174,14 +186,14 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       setIsPlaying(true);
       setShowReplay(false);
       flashPlayPause(true);
-      onPlayStateChange?.(true);
+      onPlayStateChangeRef.current?.(true);
     } else {
       video.pause();
       setIsPlaying(false);
       flashPlayPause(false);
-      onPlayStateChange?.(false);
+      onPlayStateChangeRef.current?.(false);
     }
-  }, [flashPlayPause, onPlayStateChange]);
+  }, [flashPlayPause]);
 
   const toggleMute = useCallback(() => {
     const video = videoRef.current;
@@ -189,9 +201,9 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     const nextMuted = !video.muted;
     video.muted = nextMuted;
     setIsMuted(nextMuted);
-    onMuteStateChange?.(nextMuted);
+    onMuteStateChangeRef.current?.(nextMuted);
     showToast(nextMuted ? "Muted" : "Unmuted");
-  }, [onMuteStateChange, showToast]);
+  }, [showToast]);
 
 
 
@@ -329,30 +341,31 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
   const startPlayback = useCallback(async () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || hasAutoPlayedRef.current) return;
+    hasAutoPlayedRef.current = true;
 
     try {
       await video.play();
       setIsPlaying(true);
       setShowReplay(false);
-      onPlayStateChange?.(true);
+      onPlayStateChangeRef.current?.(true);
     } catch {
       // Browser blocked unmuted autoplay - immediately retry with muted audio so video plays automatically
       try {
         video.muted = true;
         video.defaultMuted = true;
         setIsMuted(true);
-        onMuteStateChange?.(true);
+        onMuteStateChangeRef.current?.(true);
         await video.play();
         setIsPlaying(true);
         setShowReplay(false);
-        onPlayStateChange?.(true);
+        onPlayStateChangeRef.current?.(true);
       } catch {
         setIsPlaying(false);
-        onPlayStateChange?.(false);
+        onPlayStateChangeRef.current?.(false);
       }
     }
-  }, [onPlayStateChange, onMuteStateChange]);
+  }, []);
 
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
@@ -366,14 +379,14 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     }
     updateProgressDisplay(video.currentTime, video.duration || 0);
     onReady?.();
-    if (autoPlay && video.paused) {
+    if (autoPlay && !hasAutoPlayedRef.current && video.paused) {
       startPlayback();
     }
   };
 
   const handleCanPlay = () => {
     onReady?.();
-    if (autoPlay && videoRef.current && videoRef.current.paused) {
+    if (autoPlay && !hasAutoPlayedRef.current && videoRef.current && videoRef.current.paused) {
       startPlayback();
     }
   };
@@ -550,7 +563,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
   // Reliable autoplay effect on mount/src change
   useEffect(() => {
-    if (autoPlay && videoRef.current) {
+    if (autoPlay && videoRef.current && !hasAutoPlayedRef.current) {
       startPlayback();
     }
   }, [resolvedSrc, autoPlay, startPlayback]);

@@ -133,7 +133,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   const activeVideoPoster = primaryVideo?.poster || project?.posterImage;
 
-  const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedStill, setSelectedStill] = useState<string | null>(null);
   const [isScrolledToStills, setIsScrolledToStills] = useState(false);
@@ -321,29 +320,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
-      videoRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          applyAudioFade();
-        })
-        .catch(() => {
-          // If browser policy restricts autoplay with audio before direct interaction,
-          // fallback to muted playback so playback starts smoothly
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            videoRef.current
-              .play()
-              .then(() => {
-                setIsPlaying(true);
-                setIsMuted(true);
-                isMutedRef.current = true;
-              })
-              .catch(() => setIsPlaying(false));
-          }
-        });
+      applyAudioFade();
     }
-  }, [projectId, applyAudioFade, isLoading]);
+  }, [projectId, applyAudioFade]);
 
 
 
@@ -452,7 +431,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               progressColor="#ffffff"
               onReady={() => setIsProjectMediaReady(true)}
               onPlayStateChange={(playing) => {
-                setIsPlaying(playing);
                 if (playing) handleMainPlay();
               }}
               onMuteStateChange={(m) => setIsMuted(m)}
