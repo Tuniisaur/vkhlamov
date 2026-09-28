@@ -22,7 +22,7 @@ interface FramerVideoPlayerProps {
   onReady?: () => void;
 }
 
-const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 
 const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerProps>(
   function FramerVideoPlayer(
@@ -57,8 +57,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
   const progressFillRef = useRef<HTMLDivElement>(null);
   const timeDisplayRef = useRef<HTMLSpanElement>(null);
   const toastRef = useRef<HTMLDivElement>(null);
-  const speedPanelRef = useRef<HTMLDivElement>(null);
-  const speedBtnRef = useRef<HTMLButtonElement>(null);
+
   const ppFlashRef = useRef<HTMLDivElement>(null);
   const holdBadgeRef = useRef<HTMLDivElement>(null);
   const seekIndicatorRef = useRef<HTMLDivElement>(null);
@@ -67,10 +66,8 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
   const [isPlaying, setIsPlaying] = useState(!autoPlay ? false : true);
   const [isMuted, setIsMuted] = useState(muted);
-  const [currentSpeed, setCurrentSpeed] = useState(1);
   const [showReplay, setShowReplay] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isSpeedOpen, setIsSpeedOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [seekLabel, setSeekLabel] = useState("");
   const [seekDirection, setSeekDirection] = useState<"back" | "fwd">("back");
@@ -196,18 +193,10 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     showToast(nextMuted ? "Muted" : "Unmuted");
   }, [onMuteStateChange, showToast]);
 
-  const applySpeed = useCallback(
-    (s: number) => {
-      const video = videoRef.current;
-      if (video) video.playbackRate = s;
-      setCurrentSpeed(s);
-      setIsSpeedOpen(false);
-      showToast(`Speed ${s}×`);
-    },
-    [showToast]
-  );
+
 
   const toggleFullscreen = useCallback(() => {
+    const video = videoRef.current as any;
     const pw = playerWrapRef.current as any;
     if (!pw) return;
     const doc = document as any;
@@ -220,13 +209,28 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     if (!isFS) {
       pw.classList.add("going-fullscreen");
       setTimeout(() => {
-        const req =
+        // Try player-wrap div first (desktop + Android Chrome)
+        const reqPw =
           pw.requestFullscreen ||
           pw.webkitRequestFullscreen ||
           pw.mozRequestFullScreen ||
           pw.msRequestFullscreen;
-        if (req) {
-          Promise.resolve(req.call(pw)).catch(() => {});
+        if (reqPw) {
+          Promise.resolve(reqPw.call(pw)).catch(() => {
+            // Fallback: fullscreen video element directly (iOS Safari)
+            const reqVid =
+              video?.requestFullscreen ||
+              video?.webkitRequestFullscreen ||
+              video?.webkitEnterFullscreen;
+            if (reqVid) Promise.resolve(reqVid.call(video)).catch(() => {});
+          });
+        } else if (video) {
+          // iOS: go directly to video fullscreen
+          const reqVid =
+            video.requestFullscreen ||
+            video.webkitRequestFullscreen ||
+            video.webkitEnterFullscreen;
+          if (reqVid) Promise.resolve(reqVid.call(video)).catch(() => {});
         }
         setTimeout(() => pw.classList.remove("going-fullscreen"), 600);
       }, 80);
@@ -434,23 +438,11 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
           e.preventDefault();
           toggleFullscreen();
           break;
-        case ">":
-        case ".": {
-          const idx = speeds.indexOf(currentSpeed);
-          if (idx < speeds.length - 1) applySpeed(speeds[idx + 1]);
-          break;
-        }
-        case "<":
-        case ",": {
-          const idx = speeds.indexOf(currentSpeed);
-          if (idx > 0) applySpeed(speeds[idx - 1]);
-          break;
-        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePlay, seekRelative, toggleMute, toggleFullscreen, currentSpeed, applySpeed, showToast]);
+  }, [togglePlay, seekRelative, toggleMute, toggleFullscreen, showToast]);
 
   // Window mouseup / mousemove for dragging
   useEffect(() => {
@@ -478,7 +470,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       }
       if (isHoldingRef.current) {
         isHoldingRef.current = false;
-        if (videoRef.current) videoRef.current.playbackRate = currentSpeed;
+        if (videoRef.current) videoRef.current.playbackRate = 1;
         holdBadgeRef.current?.classList.remove("show");
       }
     };
@@ -489,7 +481,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [currentSpeed]);
+  }, []);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -502,7 +494,6 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
         doc.msFullscreenElement
       );
       setIsFullscreen(isFS);
-      setIsSpeedOpen(false);
     };
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
@@ -659,8 +650,17 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               didHoldRef.current = false;
               if (touchStartRef.current.moved) return;
 
+              // Check BEFORE revealing — first tap shows controls only
+              const controlsEl = rootRef.current?.querySelector(".controls");
+              const controlsWereHidden = !controlsEl?.classList.contains("reveal");
+
               // Always reveal controls on tap (mobile has no hover/mousemove)
               showControls();
+
+              if (controlsWereHidden) {
+                // First tap: just show the player controls, don't act
+                return;
+              }
 
               const touch = e.changedTouches[0];
               const side = tapSide(touch.clientX);
@@ -683,15 +683,6 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
 
               lastTapTRef.current = now;
               lastTapSideRef.current = side;
-
-              // On first tap: only show controls; on second tap: act
-              const controlsEl = rootRef.current?.querySelector(".controls");
-              const controlsWereHidden = !controlsEl?.classList.contains("reveal");
-              if (controlsWereHidden) {
-                // Controls are now revealed — don't act yet
-                return;
-              }
-
               if (side === "center") {
                 if (singleTapTimerRef.current) {
                   clearTimeout(singleTapTimerRef.current);
@@ -792,22 +783,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
             <span className="seek-label font-mono">{seekLabel}</span>
           </div>
 
-          {/* Playback Speed Glass Popover Menu */}
-          <div
-            ref={speedPanelRef}
-            className={`speed-panel ${isSpeedOpen ? "visible" : "hidden"}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {speeds.map((s) => (
-              <div
-                key={s}
-                className={`speed-opt ${currentSpeed === s ? "active" : ""}`}
-                onClick={() => applySpeed(s)}
-              >
-                {s}×
-              </div>
-            ))}
-          </div>
+
 
           {/* Bottom Luxury Cinema Overlay Controls */}
           <div className="controls">
@@ -871,8 +847,30 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
               </div>
             </div>
 
-            {/* Bottom Controls Row: Timecode, Mute, Speed, Fullscreen */}
+            {/* Bottom Controls Row: Play/Pause, Timecode, Mute, Speed, Fullscreen */}
             <div className="ctrl-row">
+              {/* Play / Pause Button */}
+              <button
+                type="button"
+                className="ctrl-btn pp-ctrl-btn"
+                title={isPlaying ? "Pause" : "Play"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlay();
+                }}
+              >
+                {isPlaying ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor" />
+                    <rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 5.6v12.8l10.5-6.4z" fill="currentColor" />
+                  </svg>
+                )}
+              </button>
+
               <span ref={timeDisplayRef} className="time-display font-mono">
                 0:00 / 0:00
               </span>
@@ -912,20 +910,6 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
                     </>
                   )}
                 </svg>
-              </button>
-
-              {/* Speed Button */}
-              <button
-                ref={speedBtnRef}
-                type="button"
-                className="ctrl-btn speed-btn font-mono"
-                title="Playback speed (> / <)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsSpeedOpen((prev) => !prev);
-                }}
-              >
-                {currentSpeed}×
               </button>
 
               {/* Fullscreen Button */}
