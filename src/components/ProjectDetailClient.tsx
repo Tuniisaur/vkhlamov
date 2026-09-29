@@ -16,25 +16,31 @@ import LogoPreloader from "@/components/LogoPreloader";
 
 interface SecondaryVideoBlockProps {
   vid: { url: string; title: string; duration?: string; poster?: string; description?: string };
+  sIdx: number;
   isMuted: boolean;
   onMuteChange: (m: boolean) => void;
   onPlay: () => void;
+  onPause: () => void;
+  onReady?: () => void;
   videoRefCallback: (node: HTMLVideoElement | null) => void;
 }
 
 function SecondaryVideoBlock({
   vid,
+  sIdx,
   isMuted,
   onMuteChange,
   onPlay,
+  onPause,
+  onReady,
   videoRefCallback,
 }: SecondaryVideoBlockProps) {
   const posterUrl = vid.poster ? resolveMediaUrl(vid.poster) : undefined;
 
   return (
-    <div className="w-full flex flex-col items-center gap-3 animate-cinema-fade">
+    <div className="w-full flex flex-col items-start gap-3 animate-cinema-fade">
       {vid.title && (
-        <div className="w-full max-w-3xl flex items-center gap-2 px-1">
+        <div className="w-full flex items-center justify-start gap-2 px-1">
           <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
           <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
             {vid.title}
@@ -50,13 +56,18 @@ function SecondaryVideoBlock({
         loop={true}
         cornerRadius={14}
         progressColor="#ffffff"
+        onReady={onReady}
         onPlayStateChange={(playing) => {
-          if (playing) onPlay();
+          if (playing) {
+            onPlay();
+          } else {
+            onPause();
+          }
         }}
         onMuteStateChange={onMuteChange}
       />
       {vid.description && (
-        <p className="w-full max-w-3xl text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
+        <p className="w-full text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
           {vid.description}
         </p>
       )}
@@ -131,15 +142,27 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
 
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const currentActiveVideoRef = useRef<number | null>(null);
+  const manuallyPausedIndexRef = useRef<number | null>(null);
 
   const handleMainPlay = useCallback(() => {
+    manuallyPausedIndexRef.current = null;
+    currentActiveVideoRef.current = 0;
     // Pause all secondary videos so there is no simultaneous playback
     secondaryVideoRefs.current.forEach((v) => {
       if (v && !v.paused) v.pause();
     });
   }, []);
 
+  const handleMainPause = useCallback(() => {
+    if (currentActiveVideoRef.current === 0) {
+      manuallyPausedIndexRef.current = 0;
+    }
+  }, []);
+
   const handleSecondaryPlay = useCallback((sIdx: number) => {
+    manuallyPausedIndexRef.current = null;
+    currentActiveVideoRef.current = sIdx + 1;
     // Pause main top video
     if (videoRef.current && !videoRef.current.paused) {
       videoRef.current.pause();
@@ -150,6 +173,12 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         v.pause();
       }
     });
+  }, []);
+
+  const handleSecondaryPause = useCallback((sIdx: number) => {
+    if (currentActiveVideoRef.current === sIdx + 1) {
+      manuallyPausedIndexRef.current = sIdx + 1;
+    }
   }, []);
 
   const activeVideoPoster = primaryVideo?.poster || project?.posterImage;
@@ -180,6 +209,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     setIsVertical(false);
     setVideoAspectRatio(null);
     secondaryVideoRefs.current = [];
+    currentActiveVideoRef.current = null;
+    manuallyPausedIndexRef.current = null;
   }, [projectId]);
 
   // Detect duration for main video
@@ -283,7 +314,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     }
 
     // 2. Secondary videos: volume is NOT affected by the primary video position or scrolling up.
-    // It reduces ONLY when scrolling towards the "stills & frames" section.
+    // It reduces ONLY when scrolling towards the "stills & frames" section or scrolling off top.
     secondaryVideoRefs.current.forEach((secVid) => {
       if (!secVid || secVid.paused) return;
       if (isMutedRef.current) {
@@ -292,11 +323,111 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         return;
       }
 
-      const secMuted = stillsVol <= 0.01;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+      let secVol = stillsVol;
+      const secRect = secVid.getBoundingClientRect();
+      if (secRect.bottom <= 0) {
+        secVol = 0;
+      } else if (secRect.bottom < vh * 0.45) {
+        secVol = Math.min(secVol, Math.max(0, secRect.bottom / (vh * 0.45)));
+      }
+
+      const secMuted = secVol <= 0.01;
       secVid.muted = secMuted;
-      secVid.volume = secMuted ? 0 : Math.round(stillsVol * 100) / 100;
+      secVid.volume = secMuted ? 0 : Math.round(secVol * 100) / 100;
     });
   }, [getStillsFadeVolume]);
+
+  // Viewport autoplay: tracks which video has user viewpoint focus and automatically plays it
+  const checkViewportAutoplay = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const vh = window.innerHeight;
+    const viewportCenter = vh / 2;
+    // Focal zone in viewport: central 60% of the screen
+    const zoneTop = vh * 0.2;
+    const zoneBottom = vh * 0.8;
+    const minOverlap = Math.min(80, vh * 0.15);
+
+    // Collect all existing video elements with their indexes (0 = primary, 1..N = secondary)
+    const videos: { index: number; el: HTMLVideoElement }[] = [];
+    if (videoRef.current) {
+      videos.push({ index: 0, el: videoRef.current });
+    }
+    secondaryVideoRefs.current.forEach((el, sIdx) => {
+      if (el) {
+        videos.push({ index: sIdx + 1, el });
+      }
+    });
+
+    if (videos.length === 0) return;
+
+    let bestIndex = -1;
+    let bestScore = -Infinity;
+
+    videos.forEach(({ index, el }) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.bottom <= 0 || rect.top >= vh) return;
+
+      const overlapTop = Math.max(rect.top, zoneTop);
+      const overlapBottom = Math.min(rect.bottom, zoneBottom);
+      const overlap = Math.max(0, overlapBottom - overlapTop);
+
+      if (overlap >= minOverlap) {
+        const videoCenter = (rect.top + rect.bottom) / 2;
+        const distFromCenter = Math.abs(videoCenter - viewportCenter);
+        const score = overlap - distFromCenter * 0.3;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIndex = index;
+        }
+      }
+    });
+
+    // If active video focus changed
+    if (bestIndex !== currentActiveVideoRef.current) {
+      currentActiveVideoRef.current = bestIndex;
+      manuallyPausedIndexRef.current = null;
+
+      videos.forEach(({ index, el }) => {
+        if (index === bestIndex) {
+          // Play the video that moved into focal viewpoint
+          if (el.paused) {
+            const playPromise = el.play();
+            if (playPromise !== undefined) {
+              playPromise.catch((err) => {
+                if (err?.name === "NotAllowedError") {
+                  el.muted = true;
+                  el.play().catch(() => {});
+                }
+              });
+            }
+          }
+        } else {
+          // Pause any other video not in viewpoint
+          if (!el.paused) {
+            el.pause();
+          }
+        }
+      });
+
+      applyAudioFade();
+    } else if (bestIndex !== -1 && manuallyPausedIndexRef.current !== bestIndex) {
+      // Active video should be playing if not manually paused (e.g. after user scroll unlocks playback)
+      const activeVid = videos.find((v) => v.index === bestIndex);
+      if (activeVid && activeVid.el.paused) {
+        const playPromise = activeVid.el.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            if (err?.name === "NotAllowedError") {
+              activeVid.el.muted = true;
+              activeVid.el.play().catch(() => {});
+            }
+          });
+        }
+      }
+    }
+  }, [applyAudioFade]);
 
   useEffect(() => {
     const checkBottomOffset = () => {
@@ -322,8 +453,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       setBottomOffset(offset);
     };
 
+    let ticking = false;
     const handleScroll = () => {
       checkBottomOffset();
+      checkViewportAutoplay();
       applyAudioFade();
       if (stillsRef.current) {
         const rect = stillsRef.current.getBoundingClientRect();
@@ -333,15 +466,53 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll, { passive: true });
+    const onScrollOrResize = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize, { passive: true });
     handleScroll();
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
     };
-  }, [applyAudioFade]);
+  }, [applyAudioFade, checkViewportAutoplay]);
+
+  // Pause playback when switching tab or minimizing browser, resume when returning
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (videoRef.current && !videoRef.current.paused) videoRef.current.pause();
+        secondaryVideoRefs.current.forEach((v) => {
+          if (v && !v.paused) v.pause();
+        });
+      } else {
+        checkViewportAutoplay();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [checkViewportAutoplay]);
+
+  // Cleanup playback on unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+      secondaryVideoRefs.current.forEach((v) => {
+        if (v && !v.paused) v.pause();
+      });
+    };
+  }, []);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -418,7 +589,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         {/* ── SECTION 1: IN PRIMO PIANO IL TITOLO E IL VIDEO ── */}
         <section className="space-y-4 sm:space-y-6 animate-cinema-fade">
           {/* Project Title & Metadata at the top */}
-          <div className={`mx-auto transition-all duration-500 space-y-2 sm:space-y-3 ${isVertical ? "max-w-2xl" : "w-full"}`}>
+          <div className="w-full transition-all duration-500 space-y-2 sm:space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-white/70 tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span className="uppercase font-medium">
@@ -449,7 +620,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           {/* Primary video title (version label) — shown at the top of the video player when explicitly set */}
           {primaryVideo?.title && primaryVideo.title !== "Main Film" && (
-            <div className="w-full max-w-3xl mx-auto flex items-center gap-2 px-1">
+            <div className="w-full flex items-center justify-start gap-2 px-1">
               <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
               <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
                 {primaryVideo.title}
@@ -469,9 +640,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               loop={true}
               cornerRadius={14}
               progressColor="#ffffff"
-              onReady={() => setIsProjectMediaReady(true)}
+              onReady={() => {
+                setIsProjectMediaReady(true);
+                checkViewportAutoplay();
+              }}
               onPlayStateChange={(playing) => {
-                if (playing) handleMainPlay();
+                if (playing) {
+                  manuallyPausedIndexRef.current = null;
+                  handleMainPlay();
+                } else {
+                  handleMainPause();
+                }
               }}
               onMuteStateChange={(m) => setIsMuted(m)}
               onAspectRatioChange={(vert, ratio) => {
@@ -491,7 +670,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           {/* Primary video description */}
           {primaryVideo?.description && (
-            <p className="w-full max-w-3xl mx-auto text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide px-1">
+            <p className="w-full text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
               {primaryVideo.description}
             </p>
           )}
@@ -499,14 +678,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
         {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro senza scritte né titoli) ── */}
         {secondaryVideos.length > 0 && (
-          <section className="space-y-6 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10 flex flex-col items-center w-full">
+          <section className="space-y-6 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10 flex flex-col items-start w-full">
             {secondaryVideos.map((vid, sIdx) => (
               <SecondaryVideoBlock
                 key={vid.url || sIdx}
                 vid={vid}
+                sIdx={sIdx}
                 isMuted={isMuted}
                 onMuteChange={(m) => setIsMuted(m)}
                 onPlay={() => handleSecondaryPlay(sIdx)}
+                onPause={() => handleSecondaryPause(sIdx)}
+                onReady={checkViewportAutoplay}
                 videoRefCallback={(el) => {
                   secondaryVideoRefs.current[sIdx] = el;
                 }}
