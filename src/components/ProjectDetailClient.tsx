@@ -862,7 +862,14 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </div>
           {/* Right: Credits */}
           <div className="text-center sm:text-right text-white/40 lowercase tracking-widest text-[10px] sm:text-xs">
-            <span>made by tuni.</span>
+            <a
+              href="https://tuni-tawny.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors duration-200"
+            >
+              made by tuni.
+            </a>
           </div>
         </div>
       </footer>
