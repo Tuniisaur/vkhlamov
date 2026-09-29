@@ -547,8 +547,10 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           </a>
         </div>
 
-        {/* Right */}
-        <div className="hidden sm:block text-right" />
+        {/* Right: Credits */}
+        <div className="text-center sm:text-right text-white/40 lowercase tracking-widest text-[10px] sm:text-xs">
+          <span>made by tuni.</span>
+        </div>
       </footer>
 
     </div>
