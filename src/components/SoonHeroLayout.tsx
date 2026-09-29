@@ -410,9 +410,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
             >
               © {new Date().getFullYear()} VALERIY KHLAMOV
             </Link>
-            <div className="text-[9px] sm:text-[10px] text-white/40 tracking-widest mt-0.5">
-              <span>P.IVA {settings.vatNumber || "18341681007"}</span>
-            </div>
           </div>
 
           {/* Center: Footer Links & Email */}
