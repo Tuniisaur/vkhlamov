@@ -209,6 +209,7 @@ export default function LegalPage() {
             <div>
               <span className="text-white font-bold block">VALERIY KHLAMOV STUDIO</span>
               <span>Milan, Italy • High-Speed Pursuit &amp; Automotive Cinematography</span>
+              <span className="block text-white/50">P.IVA: 18341681007</span>
             </div>
             <div className="text-left sm:text-right space-y-1">
               <div>Direct: <a href="mailto:valerio@vkhlamov.com" className="text-white underline">valerio@vkhlamov.com</a></div>
@@ -220,7 +221,7 @@ export default function LegalPage() {
 
       {/* ── BOTTOM FOOTER ── */}
       <footer className="relative z-20 w-full max-w-5xl mx-auto border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40">
-        <div>© {currentYear} VALERIY KHLAMOV — ALL RIGHTS RESERVED</div>
+        <div>© {currentYear} VALERIY KHLAMOV • P.IVA 18341681007 — ALL RIGHTS RESERVED</div>
         <Link
           href="/"
           className="text-white/70 hover:text-white hover:italic transition-colors"

@@ -544,8 +544,10 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           </a>
         </div>
 
-        {/* Right */}
-        <div className="hidden sm:block text-right" />
+        {/* Right: Partita IVA */}
+        <div className="text-center sm:text-right text-white/40">
+          <span>P.IVA {settings.vatNumber || "18341681007"}</span>
+        </div>
       </footer>
 
     </div>

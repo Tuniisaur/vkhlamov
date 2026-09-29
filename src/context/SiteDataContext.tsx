@@ -59,6 +59,7 @@ export interface SiteSettings {
   footerLinks: FooterLink[];
   instagramUrl?: string;
   vimeoUrl?: string;
+  vatNumber?: string;
   about?: AboutSettings;
 }
 
@@ -67,6 +68,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   contactEmail: "valerio@vkhlamov.com",
   contactPhone: "+39 348 000 0000",
   representation: "Milan // London // Worldwide Direct Booking",
+  vatNumber: "18341681007",
   channels: [
     { id: "vimeo", name: "Vimeo Pro", url: "https://vimeo.com" },
     { id: "instagram", name: "Instagram Cinema", url: "https://instagram.com/vkhlamov" },

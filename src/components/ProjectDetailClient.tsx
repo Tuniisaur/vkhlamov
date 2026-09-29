@@ -857,7 +857,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               <Mail className="w-4 h-4 sm:w-[18px] sm:h-[18px] transition-transform duration-300 hover:scale-110" />
             </a>
           </div>
-          <div className="text-center sm:text-right" />
+          <div className="text-center sm:text-right text-white/40 uppercase tracking-widest text-[10px] sm:text-xs">
+            <span>P.IVA {settings.vatNumber || "18341681007"}</span>
+          </div>
         </div>
       </footer>
     </div>

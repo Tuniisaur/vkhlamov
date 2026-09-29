@@ -204,6 +204,7 @@ export default function ManagePage() {
     contactEmail: settings.contactEmail,
     contactPhone: settings.contactPhone,
     representation: settings.representation,
+    vatNumber: settings.vatNumber || "18341681007",
     instagramUrl: settings.instagramUrl,
     vimeoUrl: settings.vimeoUrl,
   });
@@ -260,6 +261,7 @@ export default function ManagePage() {
         contactEmail: settings.contactEmail,
         contactPhone: settings.contactPhone,
         representation: settings.representation,
+        vatNumber: settings.vatNumber || "18341681007",
         instagramUrl: settings.instagramUrl,
         vimeoUrl: settings.vimeoUrl,
       });
@@ -1782,6 +1784,21 @@ export default function ManagePage() {
                   onChange={(e) =>
                     setContactForm({ ...contactForm, representation: e.target.value })
                   }
+                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-white/50 uppercase tracking-wider block">
+                  partita iva (p.iva)
+                </label>
+                <input
+                  type="text"
+                  value={contactForm.vatNumber}
+                  onChange={(e) =>
+                    setContactForm({ ...contactForm, vatNumber: e.target.value })
+                  }
+                  placeholder="18341681007"
                   className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                 />
               </div>
