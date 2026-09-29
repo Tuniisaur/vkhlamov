@@ -1693,7 +1693,7 @@ export default function ManagePage() {
                       </div>
                     )}
 
-                    {aboutForm.accreditations && (
+                    {Boolean(aboutForm.accreditations && aboutForm.accreditations.trim()) && (
                       <div>
                         <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
                           {aboutForm.accreditationsTitle || "ACCREDITATIONS"}

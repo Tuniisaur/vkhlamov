@@ -281,18 +281,22 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
               <span className="text-[10px] font-mono tracking-widest uppercase text-white/50 block">
                 DIRECT INQUIRIES & COMMISSIONS
               </span>
-              <a
-                href={`mailto:${settings.contactEmail}`}
-                className="block text-xl xs:text-2xl sm:text-4xl md:text-5xl font-light hover:italic transition-all duration-300 tracking-tight transform hover:translate-x-2 break-all sm:break-normal leading-snug"
-              >
-                {settings.contactEmail} ↗
-              </a>
-              <a
-                href={`tel:${settings.contactPhone.replace(/\s+/g, "")}`}
-                className="block text-xs sm:text-lg font-mono text-white/70 hover:text-white hover:italic transition-all duration-300 transform hover:translate-x-1"
-              >
-                {settings.contactPhone} (WhatsApp / Production Hotline)
-              </a>
+              {settings.contactEmail && (
+                <a
+                  href={`mailto:${settings.contactEmail}`}
+                  className="block text-xl xs:text-2xl sm:text-4xl md:text-5xl font-light hover:italic transition-all duration-300 tracking-tight transform hover:translate-x-2 break-all sm:break-normal leading-snug"
+                >
+                  {settings.contactEmail} ↗
+                </a>
+              )}
+              {Boolean(settings.contactPhone && settings.contactPhone.trim()) && (
+                <a
+                  href={`tel:${settings.contactPhone.replace(/\s+/g, "")}`}
+                  className="block text-xs sm:text-lg font-mono text-white/70 hover:text-white hover:italic transition-all duration-300 transform hover:translate-x-1"
+                >
+                  {settings.contactPhone} (WhatsApp / Production Hotline)
+                </a>
+              )}
             </div>
 
             <div className="md:col-span-5 space-y-4 sm:space-y-6 font-mono text-xs sm:text-sm text-white/70 md:pl-8 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0">
@@ -360,7 +364,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
                 </div>
               )}
 
-              {about.accreditations && (
+              {Boolean(about.accreditations && about.accreditations.trim()) && (
                 <div>
                   <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
                     {about.accreditationsTitle || "ACCREDITATIONS"}
