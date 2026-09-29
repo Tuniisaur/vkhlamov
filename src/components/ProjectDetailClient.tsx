@@ -817,6 +817,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             >
               © {new Date().getFullYear()} VALERIY KHLAMOV
             </Link>
+            <div className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+              <span>P.IVA {settings.vatNumber || "18341681007"}</span>
+            </div>
           </div>
           <div className="text-center flex items-center justify-center flex-wrap gap-4 sm:gap-6">
             {(settings.footerLinks && settings.footerLinks.length > 0
@@ -857,9 +860,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               <Mail className="w-4 h-4 sm:w-[18px] sm:h-[18px] transition-transform duration-300 hover:scale-110" />
             </a>
           </div>
-          <div className="text-center sm:text-right text-white/40 uppercase tracking-widest text-[10px] sm:text-xs">
-            <span>P.IVA {settings.vatNumber || "18341681007"}</span>
-          </div>
+          <div className="text-center sm:text-right" />
         </div>
       </footer>
     </div>
