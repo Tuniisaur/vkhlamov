@@ -32,34 +32,13 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 sm:gap-14 lg:gap-16 items-start">
-          {/* ── LEFT COLUMN: DIRECTOR / CINEMA PHOTO ── */}
-          <div className="lg:col-span-5 w-full flex flex-col items-center lg:items-start lg:sticky lg:top-28">
-            <div className="relative w-full max-w-[440px] aspect-[3/4] sm:aspect-[4/5] lg:aspect-[3/4] rounded-2xl overflow-hidden bg-[#0c0c0e] border border-white/[0.08] shadow-[0_25px_60px_rgba(0,0,0,0.85)] group">
-              {/* Subtle cinema viewfinder corner brackets */}
-              <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-white/30 z-10 pointer-events-none" />
-              <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-white/30 z-10 pointer-events-none" />
-              <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/30 z-10 pointer-events-none" />
-              <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/30 z-10 pointer-events-none" />
-
-              {/* Main Photo with smooth hover zoom */}
-              <Image
-                src={resolveMediaUrl(photoSrc)}
-                alt="Valeriy Khlamov - Director of Photography"
-                fill
-                sizes="(max-width: 1024px) 100vw, 42vw"
-                className="object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.03]"
-                priority={false}
-              />
-            </div>
-          </div>
-
-          {/* ── RIGHT COLUMN: ALL PROFILE & CAREER INFORMATION ── */}
-          <div className="lg:col-span-7 flex flex-col space-y-8 sm:space-y-10 text-white lg:pl-4">
+          {/* ── LEFT COLUMN: ALL PROFILE & CAREER INFORMATION (CLEAN BACKGROUND, NO VIDEO TEXTURE) ── */}
+          <div className="lg:col-span-7 flex flex-col space-y-8 sm:space-y-10 text-white lg:pr-6 order-1">
             {/* 1. Badge & Title */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-mono tracking-widest uppercase text-white/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                <span>{about.badge || "// PROFILE & DIRECTION"}</span>
+                <span>{about.badge || "// ABOUT ME"}</span>
               </div>
 
               <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-light leading-snug tracking-tight text-white font-sans">
@@ -187,6 +166,27 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
                   </a>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT COLUMN: DIRECTOR / CINEMA PHOTO ── */}
+          <div className="lg:col-span-5 w-full flex flex-col items-center lg:items-end lg:sticky lg:top-28 order-2">
+            <div className="relative w-full max-w-[440px] aspect-[3/4] sm:aspect-[4/5] lg:aspect-[3/4] rounded-2xl overflow-hidden bg-[#0c0c0e] border border-white/[0.08] shadow-[0_25px_60px_rgba(0,0,0,0.85)] group">
+              {/* Subtle cinema viewfinder corner brackets */}
+              <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-white/30 z-10 pointer-events-none" />
+              <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-white/30 z-10 pointer-events-none" />
+              <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/30 z-10 pointer-events-none" />
+              <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/30 z-10 pointer-events-none" />
+
+              {/* Main Photo with smooth hover zoom */}
+              <Image
+                src={resolveMediaUrl(photoSrc)}
+                alt="Valeriy Khlamov - Director of Photography"
+                fill
+                sizes="(max-width: 1024px) 100vw, 42vw"
+                className="object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.03]"
+                priority={false}
+              />
             </div>
           </div>
         </div>

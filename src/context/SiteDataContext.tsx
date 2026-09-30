@@ -38,7 +38,7 @@ export interface AboutSettings {
 }
 
 export const DEFAULT_ABOUT: AboutSettings = {
-  badge: "// PROFILE & DIRECTION",
+  badge: "// ABOUT ME",
   title: "Valerio Khlamov is a Director of Photography and High-Speed Pursuit Cinematographer based in Milan.",
   bio: "Specialized in high-speed pursuit cinematography and visceral automotive storytelling. Directing commercial campaigns and trackside cinema for Formula, GT, WEC, and premier automotive manufacturers worldwide.",
   secondaryBio: "",

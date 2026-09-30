@@ -1329,19 +1329,19 @@ export default function ManagePage() {
               <div className="lg:col-span-6 space-y-6 font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                    {"//"} colonna sinistra: foto, direzione & biografia
+                    {"//"} testi, direzione & biografia (colonna sinistra)
                   </span>
                 </div>
 
-                {/* Foto About Colonna Sinistra */}
+                {/* Foto About Colonna Destra */}
                 <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/10">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <label className="text-white/80 uppercase tracking-wider block font-bold text-xs">
-                        foto about (colonna sinistra)
+                        foto about (mostrata a destra)
                       </label>
                       <p className="text-[10px] text-white/40">
-                        Foto ritratto o cinema still mostrata a sinistra nella sezione about della homepage
+                        Foto ritratto o cinema still mostrata a destra nella sezione about della homepage
                       </p>
                     </div>
 
@@ -1684,7 +1684,7 @@ export default function ManagePage() {
               </button>
             </div>
 
-            {/* Anteprima Live in stile Sezione About (con foto a sinistra e info a destra) */}
+            {/* Anteprima Live in stile Sezione About (con testi a sinistra e foto a destra) */}
             <div className="pt-8 border-t border-white/10 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
@@ -1696,27 +1696,10 @@ export default function ManagePage() {
               </div>
               <div className="relative rounded-2xl border border-white/15 bg-black/80 backdrop-blur-md p-6 sm:p-10 overflow-hidden">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-white">
-                  {/* Left Column: Photo Preview */}
-                  <div className="lg:col-span-5 w-full flex flex-col items-center">
-                    <div className="relative w-full max-w-[320px] aspect-[3/4] rounded-xl overflow-hidden bg-[#0c0c0e] border border-white/10 shadow-2xl">
-                      {/* Viewfinder brackets */}
-                      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-white/30 z-10 pointer-events-none" />
-                      <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-white/30 z-10 pointer-events-none" />
-                      <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-white/30 z-10 pointer-events-none" />
-                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-white/30 z-10 pointer-events-none" />
-
-                      <img
-                        src={resolveMediaUrl(aboutForm.image || "/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
-                        alt="About preview"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column: Info Preview */}
-                  <div className="lg:col-span-7 space-y-5">
+                  {/* Left Column: Info Preview */}
+                  <div className="lg:col-span-7 space-y-5 order-1">
                     <span className="text-[10px] font-mono tracking-widest uppercase text-white/50 block">
-                      {aboutForm.badge || "// PROFILE & DIRECTION"}
+                      {aboutForm.badge || "// ABOUT ME"}
                     </span>
                     <p className="text-xl sm:text-2xl md:text-3xl font-light leading-snug tracking-tight">
                       {aboutForm.title || "Valerio Khlamov"}
@@ -1786,6 +1769,23 @@ export default function ManagePage() {
                             </p>
                           </div>
                         ))}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Photo Preview */}
+                  <div className="lg:col-span-5 w-full flex flex-col items-center lg:items-end order-2">
+                    <div className="relative w-full max-w-[320px] aspect-[3/4] rounded-xl overflow-hidden bg-[#0c0c0e] border border-white/10 shadow-2xl">
+                      {/* Viewfinder brackets */}
+                      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-white/30 z-10 pointer-events-none" />
+
+                      <img
+                        src={resolveMediaUrl(aboutForm.image || "/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
+                        alt="About preview"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   </div>
                 </div>
