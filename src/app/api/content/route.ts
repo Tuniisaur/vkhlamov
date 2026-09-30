@@ -35,6 +35,7 @@ export interface AboutSettings {
   baseTitle: string;
   base: string;
   customBlocks?: AboutInfoBlock[];
+  image?: string;
 }
 
 export const DEFAULT_ABOUT: AboutSettings = {
@@ -49,6 +50,7 @@ export const DEFAULT_ABOUT: AboutSettings = {
   baseTitle: "BASE & DEPLOYMENT",
   base: "Milan, Italy • Available Worldwide for Commercial & Trackside Projects",
   customBlocks: [],
+  image: "/images/still-2026-09-23-130212_1-2-1-5306.jpg",
 };
 
 export interface SiteSettings {

@@ -767,9 +767,19 @@ export default function ManagePage() {
 
   // Save About Info
   const handleSaveAbout = async () => {
-    await updateSettings({
-      about: aboutForm,
-    });
+    try {
+      const res = await updateSettings({
+        about: aboutForm,
+      });
+      if (res.ok) {
+        alert("✓ Sezione About salvata con successo!\nLe modifiche sono ora applicate alla homepage.");
+      } else {
+        alert(`Errore nel salvataggio della sezione About:\n${res.error || "Impossibile salvare"}`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Errore imprevisto nel salvataggio: ${msg}`);
+    }
   };
 
   const handleAddCustomBlock = () => {
@@ -1379,6 +1389,29 @@ export default function ManagePage() {
                     className="w-full bg-transparent border-b border-white/20 py-1.5 text-white/90 focus:outline-none focus:border-white transition-colors text-xs font-mono"
                   />
 
+                  {/* Quick select from media library if available */}
+                  {activeImages.length > 0 && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[10px] text-white/40 shrink-0">o scegli da libreria:</span>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setAboutForm((prev) => ({ ...prev, image: e.target.value }));
+                          }
+                        }}
+                        value=""
+                        className="bg-black/80 border border-white/20 rounded text-[11px] font-mono text-white/80 py-1 px-2 focus:outline-none focus:border-white w-full max-w-xs cursor-pointer truncate"
+                      >
+                        <option value="" disabled>-- seleziona immagine caricata --</option>
+                        {activeImages.map((img) => (
+                          <option key={img.path || img.name} value={img.path}>
+                            {img.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Visual preview */}
                   {aboutForm.image && (
                     <div className="flex items-start gap-4 pt-2">
@@ -1651,19 +1684,45 @@ export default function ManagePage() {
               </button>
             </div>
 
-            {/* Anteprima Live in stile Cinema Overlay */}
+            {/* Anteprima Live in stile Sezione About (con foto a sinistra e info a destra) */}
             <div className="pt-8 border-t border-white/10 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                  {"//"} anteprima in tempo reale (come appare in homepage all&apos;apertura di &quot;about&quot;)
+                  {"//"} anteprima in tempo reale (come appare nella sezione about sotto a projects)
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400">
                   ● live preview
                 </span>
               </div>
               <div className="relative rounded-2xl border border-white/15 bg-black/80 backdrop-blur-md p-6 sm:p-10 overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 text-white">
-                  <div className="md:col-span-7 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-white">
+                  {/* Left Column: Photo Preview */}
+                  <div className="lg:col-span-5 w-full flex flex-col items-center">
+                    <div className="relative w-full max-w-[320px] aspect-[3/4] rounded-xl overflow-hidden bg-[#0c0c0e] border border-white/10 shadow-2xl">
+                      {/* Viewfinder brackets */}
+                      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-white/30 z-10 pointer-events-none" />
+                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-white/30 z-10 pointer-events-none" />
+
+                      <img
+                        src={resolveMediaUrl(aboutForm.image || "/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
+                        alt="About preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute inset-x-0 bottom-0 p-3 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase text-white/70 z-10">
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          VALERIY KHLAMOV
+                        </span>
+                        <span className="text-white/40">// DIR / DOP</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Info Preview */}
+                  <div className="lg:col-span-7 space-y-5">
                     <span className="text-[10px] font-mono tracking-widest uppercase text-white/50 block">
                       {aboutForm.badge || "// PROFILE & DIRECTION"}
                     </span>
@@ -1674,57 +1733,68 @@ export default function ManagePage() {
                       {aboutForm.bio}
                     </p>
                     {aboutForm.secondaryBio && (
-                      <p className="text-xs sm:text-sm text-white/60 leading-relaxed font-light whitespace-pre-line">
+                      <p className="text-xs sm:text-sm text-white/60 leading-relaxed font-light whitespace-pre-line pt-2 border-t border-white/[0.06]">
                         {aboutForm.secondaryBio}
                       </p>
                     )}
-                  </div>
 
-                  <div className="md:col-span-5 space-y-5 font-mono text-xs text-white/70 md:pl-8 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0">
-                    {aboutForm.disciplines && (
-                      <div>
-                        <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                          {aboutForm.disciplinesTitle || "DISCIPLINES & FOCUS"}
-                        </span>
-                        <p className="text-white font-light text-xs whitespace-pre-line">
-                          {aboutForm.disciplines}
-                        </p>
-                      </div>
-                    )}
-
-                    {Boolean(aboutForm.accreditations && aboutForm.accreditations.trim()) && (
-                      <div>
-                        <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                          {aboutForm.accreditationsTitle || "ACCREDITATIONS"}
-                        </span>
-                        <p className="text-white font-light text-xs whitespace-pre-line">
-                          {aboutForm.accreditations}
-                        </p>
-                      </div>
-                    )}
-
-                    {aboutForm.base && (
-                      <div>
-                        <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                          {aboutForm.baseTitle || "BASE & DEPLOYMENT"}
-                        </span>
-                        <p className="text-white font-light text-xs whitespace-pre-line">
-                          {aboutForm.base}
-                        </p>
-                      </div>
-                    )}
-
-                    {aboutForm.customBlocks &&
-                      aboutForm.customBlocks.map((block) => (
-                        <div key={block.id}>
+                    <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs text-white/70">
+                      {aboutForm.disciplines && (
+                        <div>
                           <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                            {block.label}
+                            {aboutForm.disciplinesTitle || "DISCIPLINES & FOCUS"}
                           </span>
                           <p className="text-white font-light text-xs whitespace-pre-line">
-                            {block.value}
+                            {aboutForm.disciplines}
                           </p>
                         </div>
-                      ))}
+                      )}
+
+                      {Boolean(aboutForm.accreditations && aboutForm.accreditations.trim()) && (
+                        <div>
+                          <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
+                            {aboutForm.accreditationsTitle || "ACCREDITATIONS"}
+                          </span>
+                          <p className="text-white font-light text-xs whitespace-pre-line">
+                            {aboutForm.accreditations}
+                          </p>
+                        </div>
+                      )}
+
+                      {aboutForm.base && (
+                        <div>
+                          <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
+                            {aboutForm.baseTitle || "BASE & DEPLOYMENT"}
+                          </span>
+                          <p className="text-white font-light text-xs whitespace-pre-line">
+                            {aboutForm.base}
+                          </p>
+                        </div>
+                      )}
+
+                      {settings.representation && (
+                        <div>
+                          <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
+                            REPRESENTATION
+                          </span>
+                          <p className="text-white font-light text-xs whitespace-pre-line">
+                            {settings.representation}
+                          </p>
+                        </div>
+                      )}
+
+                      {aboutForm.customBlocks &&
+                        aboutForm.customBlocks.map((block) => (
+                          <div key={block.id}>
+                            <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
+                              {block.label}
+                            </span>
+                            <p className="text-white font-light text-xs whitespace-pre-line">
+                              {block.value}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>
