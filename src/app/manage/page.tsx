@@ -12,7 +12,6 @@ import {
   DEFAULT_ABOUT,
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill, ProjectVideo } from "@/data/translations";
-import { detectVideoDuration } from "@/utils/videoDuration";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { captureVideoThumbnail } from "@/utils/videoThumbnail";
 
@@ -193,8 +192,6 @@ export default function ManagePage() {
   // Project Editing Modal State
   const [editingProject, setEditingProject] = useState<LocalizedProject | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [isCalculatingDuration, setIsCalculatingDuration] = useState(false);
-  const [isBatchCalculating, setIsBatchCalculating] = useState(false);
 
   // Hero Video Form State
   const [heroVideoUrl, setHeroVideoUrl] = useState(settings.heroVideo);
@@ -442,7 +439,6 @@ export default function ManagePage() {
           {
             url: cloned.fullVideoUrl,
             title: "Main Film",
-            duration: cloned.duration || "",
           },
         ];
       } else {
@@ -452,16 +448,6 @@ export default function ManagePage() {
 
     setEditingProject(cloned);
     setIsCreatingNew(false);
-
-    // If duration is empty or missing, detect it automatically in background
-    const targetDurUrl = cloned.videos?.[0]?.url || cloned.fullVideoUrl || cloned.videoPreviewUrl;
-    if (!cloned.duration && targetDurUrl) {
-      detectVideoDuration(targetDurUrl).then((dur) => {
-        if (dur) {
-          setEditingProject((prev) => (prev && prev.id === cloned.id ? { ...prev, duration: dur } : prev));
-        }
-      });
-    }
   };
 
   const handleOpenCreateNew = () => {
@@ -517,19 +503,8 @@ export default function ManagePage() {
         {
           url: projectToSave.fullVideoUrl,
           title: "Main Film",
-          duration: projectToSave.duration || "",
         },
       ];
-    }
-
-    // If duration is not set, calculate automatically from primary video before saving
-    const primaryVideoUrl =
-      projectToSave.videos?.[0]?.url || projectToSave.fullVideoUrl || projectToSave.videoPreviewUrl;
-    if (!projectToSave.duration && primaryVideoUrl) {
-      const autoDur = await detectVideoDuration(primaryVideoUrl);
-      if (autoDur) {
-        projectToSave.duration = autoDur;
-      }
     }
 
     const res = isCreatingNew
@@ -540,42 +515,6 @@ export default function ManagePage() {
       setEditingProject(null);
     } else {
       alert(`Impossibile salvare il progetto:\n${res.error || "Errore sconosciuto"}`);
-    }
-  };
-
-  // Batch calculate durations for all existing projects
-  const handleBatchRecalculateDurations = async () => {
-    if (projects.length === 0) return;
-    setIsBatchCalculating(true);
-    let updatedCount = 0;
-    try {
-      const updated = await Promise.all(
-        projects.map(async (p) => {
-          const videoUrl = p.videos?.[0]?.url || p.fullVideoUrl || p.videoPreviewUrl;
-          if (!videoUrl) return p;
-          const dur = await detectVideoDuration(videoUrl);
-          if (dur && dur !== p.duration) {
-            updatedCount++;
-            return { ...p, duration: dur };
-          }
-          return p;
-        })
-      );
-      if (updatedCount > 0) {
-        const res = await saveAll(updated, settings);
-        if (res.ok) {
-          alert(`Durata calcolata e aggiornata con successo per ${updatedCount} progetti.`);
-        } else {
-          alert(`Impossibile aggiornare le durate:\n${res.error || "Errore sconosciuto"}`);
-        }
-      } else {
-        alert("Tutte le durate dei progetti sono già aggiornate.");
-      }
-    } catch (e) {
-      console.error("Batch duration calculation error:", e);
-      alert("Si è verificato un errore durante il calcolo automatico delle durate.");
-    } finally {
-      setIsBatchCalculating(false);
     }
   };
 
@@ -630,17 +569,9 @@ export default function ManagePage() {
       (titleToAdd || newVideoTitle).trim() ||
       `Film ${String(currentVideos.length + 1).padStart(2, "0")}`;
 
-    let duration = "";
-    try {
-      duration = (await detectVideoDuration(url)) || "";
-    } catch {
-      // ignore
-    }
-
     const newVid: ProjectVideo = {
       url,
       title,
-      duration,
     };
 
     const updatedVideos = [...currentVideos, newVid];
@@ -648,7 +579,6 @@ export default function ManagePage() {
       ...editingProject,
       videos: updatedVideos,
       fullVideoUrl: editingProject.fullVideoUrl || url,
-      duration: editingProject.duration || duration,
     });
     setNewVideoUrl("");
     setNewVideoTitle("");
@@ -1123,14 +1053,6 @@ export default function ManagePage() {
 
               <div className="flex items-center gap-4">
                 <button
-                  onClick={handleBatchRecalculateDurations}
-                  disabled={isBatchCalculating || projects.length === 0}
-                  className="text-xs font-mono text-white/60 hover:text-white hover:italic transition-colors cursor-pointer disabled:opacity-30"
-                  title="Rileva e aggiorna automaticamente la durata effettiva di tutti i video"
-                >
-                  {isBatchCalculating ? "[ calcolo durate in corso... ]" : "[ ⟳ calcola durate video ]"}
-                </button>
-                <button
                   onClick={handleOpenCreateNew}
                   className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer"
                 >
@@ -1166,11 +1088,6 @@ export default function ManagePage() {
                         <div className="w-full h-full flex flex-col items-center justify-center text-white/20 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
                           <span>[ nessuna cover ]</span>
                         </div>
-                      )}
-                      {proj.duration && (
-                        <span className="absolute bottom-1 right-2 font-mono text-[10px] text-white/60">
-                          {proj.duration}
-                        </span>
                       )}
                     </div>
                   </div>
@@ -2324,55 +2241,16 @@ export default function ManagePage() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-white/40 block">durata (calcolata in automatico)</label>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const targetUrl =
-                        editingProject.videos?.[0]?.url ||
-                        editingProject.fullVideoUrl ||
-                        editingProject.videoPreviewUrl;
-                        if (!targetUrl) {
-                          alert("Carica o inserisci prima l'URL di un video.");
-                          return;
-                        }
-                        setIsCalculatingDuration(true);
-                        const dur = await detectVideoDuration(targetUrl);
-                        setIsCalculatingDuration(false);
-                        if (dur) {
-                          setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                        } else {
-                          alert("Impossibile calcolare automaticamente la durata dal video specificato.");
-                        }
-                      }}
-                      className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer"
-                    >
-                      {isCalculatingDuration ? "[ rilevamento... ]" : "[ ⟳ calcola dal video ]"}
-                    </button>
-                  </div>
+                  <label className="text-white/40 block">location</label>
                   <input
                     type="text"
-                    placeholder="es. 02:45 (calcolato in automatico)"
-                    value={editingProject.duration}
+                    value={editingProject.location}
                     onChange={(e) =>
-                      setEditingProject({ ...editingProject, duration: e.target.value })
+                      setEditingProject({ ...editingProject, location: e.target.value })
                     }
                     className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-white/40 block">location</label>
-                <input
-                  type="text"
-                  value={editingProject.location}
-                  onChange={(e) =>
-                    setEditingProject({ ...editingProject, location: e.target.value })
-                  }
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                />
               </div>
             </div>
 
@@ -2398,11 +2276,6 @@ export default function ManagePage() {
                         const f = e.target.files?.[0];
                         if (f) {
                           setIsUploading("proj-preview");
-                          detectVideoDuration(f).then((dur) => {
-                            if (dur && !editingProject.duration) {
-                              setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                            }
-                          });
                           try {
                             const path = await handleUploadFile(f, "video");
                             if (path) setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
@@ -2422,12 +2295,6 @@ export default function ManagePage() {
                   type="text"
                   value={editingProject.videoPreviewUrl}
                   placeholder="nessun URL video impostato"
-                  onBlur={async () => {
-                    if (!editingProject.duration && editingProject.videoPreviewUrl) {
-                      const dur = await detectVideoDuration(editingProject.videoPreviewUrl);
-                      if (dur) setEditingProject((prev) => (prev ? { ...prev, duration: dur } : null));
-                    }
-                  }}
                   onChange={(e) =>
                     setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: e.target.value } : null))
                   }
@@ -2510,9 +2377,7 @@ export default function ManagePage() {
                           const newVids: ProjectVideo[] = [];
                           for (let i = 0; i < files.length; i++) {
                             const f = files[i];
-                            const durPromise = detectVideoDuration(f);
                             const path = await handleUploadFile(f, "video");
-                            const dur = (await durPromise) || "";
 
                             if (path) {
                               const cleanTitle = f.name
@@ -2521,7 +2386,6 @@ export default function ManagePage() {
                               newVids.push({
                                 url: path,
                                 title: cleanTitle || `Film ${String((editingProject?.videos?.length || 0) + i + 1).padStart(2, "0")}`,
-                                duration: dur,
                                 posterImage: "",
                                 poster: "",
                               });
@@ -2535,7 +2399,6 @@ export default function ManagePage() {
                                 ...prev,
                                 videos: combined,
                                 fullVideoUrl: prev.fullVideoUrl || combined[0]?.url || "",
-                                duration: prev.duration || combined[0]?.duration || "",
                               };
                             });
                           }
@@ -2722,52 +2585,19 @@ export default function ManagePage() {
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <div className="sm:col-span-2">
-                                  <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
-                                    URL / Percorso Video
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={vid.url}
-                                    placeholder="/media/videos/..."
-                                    onChange={(e) =>
-                                      handleUpdateMainVideo(vIdx, { url: e.target.value })
-                                    }
-                                    className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
-                                      Durata
-                                    </label>
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        const dur = await detectVideoDuration(vid.url);
-                                        if (dur) {
-                                          handleUpdateMainVideo(vIdx, { duration: dur });
-                                          if (isFirst && !editingProject.duration) {
-                                            setEditingProject((p) => p ? { ...p, duration: dur } : null);
-                                          }
-                                        }
-                                      }}
-                                      className="text-[9px] text-white/60 hover:text-white hover:underline cursor-pointer"
-                                    >
-                                      ⟳ rileva
-                                    </button>
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={vid.duration || ""}
-                                    placeholder="es. 02:45"
-                                    onChange={(e) =>
-                                      handleUpdateMainVideo(vIdx, { duration: e.target.value })
-                                    }
-                                    className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors"
-                                  />
-                                </div>
+                              <div>
+                                <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
+                                  URL / Percorso Video
+                                </label>
+                                <input
+                                  type="text"
+                                  value={vid.url}
+                                  placeholder="/media/videos/..."
+                                  onChange={(e) =>
+                                    handleUpdateMainVideo(vIdx, { url: e.target.value })
+                                  }
+                                  className="w-full bg-transparent border-b border-white/15 py-1 text-xs text-white/80 font-mono focus:outline-none focus:border-white transition-colors"
+                                />
                               </div>
                             </div>
                           </div>

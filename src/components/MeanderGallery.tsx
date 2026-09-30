@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LocalizedProject } from "@/data/translations";
@@ -62,13 +62,89 @@ function StoryCard({
   item: StoryItem;
   onSelect?: (project: LocalizedProject) => void;
 }) {
+  const containerRef = useRef<HTMLAnchorElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isFramePlaying, setIsFramePlaying] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(!item.poster);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVertical, setIsVertical] = useState(false);
+
+  // Initialize video settings for mobile inline playback
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.defaultMuted = true;
+      video.muted = true;
+      video.playsInline = true;
+    }
+    // Safety fallback: ensure skeleton is dismissed if poster/video loading stalls
+    const timer = setTimeout(() => {
+      setIsImageLoaded(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Viewport intersection observer: autoplay video preview on smartphone when scrolled into view
+  useEffect(() => {
+    const container = containerRef.current;
+    const video = videoRef.current;
+    if (!container || !video) return;
+
+    const isTouch =
+      typeof window !== "undefined" &&
+      (window.matchMedia("(hover: none), (pointer: coarse)").matches ||
+        window.innerWidth < 1024);
+
+    if (!isTouch) {
+      // Desktop: mouse hover triggers playback; pause when scrolled out of view
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting && !video.paused) {
+              video.pause();
+              setIsFramePlaying(false);
+            }
+          });
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(container);
+      return () => observer.disconnect();
+    }
+
+    // Smartphone / Touch devices: automatically play preview when in view
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            video.preload = "auto";
+            video.muted = true;
+            video.defaultMuted = true;
+            video.playsInline = true;
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {});
+            }
+          } else {
+            if (!video.paused) {
+              video.pause();
+            }
+            setIsFramePlaying(false);
+          }
+        });
+      },
+      {
+        threshold: 0.25,
+        rootMargin: "0px 0px -5% 0px",
+      }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -87,6 +163,11 @@ function StoryCard({
 
   const handleMouseLeave = () => {
     setIsHovered(false);
+    const isTouch =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none), (pointer: coarse)").matches;
+    if (isTouch) return;
+
     setIsFramePlaying(false);
     setProgress(0);
     if (videoRef.current) {
@@ -128,21 +209,35 @@ function StoryCard({
     }
   };
 
+  const showSkeleton = !isImageLoaded && !isVideoReady && !isFramePlaying;
+
   return (
     <Link
+      ref={containerRef}
       href={`/project/${item.project.id}`}
       scroll={true}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group flex flex-col cursor-pointer select-none"
     >
-      {/* Video Box with Rounded Corners (Adapts to vertical 9:16 or horizontal 16:9) */}
-      <div className={`relative w-full overflow-hidden rounded-lg bg-black transition-[aspect-ratio] duration-500 flex items-center justify-center ${
-        isVertical ? "aspect-[9/16]" : "aspect-video"
-      }`}>
+      {/* Video Box with Rounded Corners (Harmonious aspect-video frame with ambient cinema backlight for vertical films) */}
+      <div className="relative w-full aspect-video overflow-hidden rounded-lg bg-[#0a0a0d] border border-white/[0.04] flex items-center justify-center">
+        {/* Ambient blurred backdrop for vertical videos to fill the letterbox seamlessly with matching film colors */}
+        {isVertical && item.poster && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30 select-none">
+            <Image
+              src={resolveMediaUrl(item.poster)}
+              alt=""
+              fill
+              unoptimized
+              className="object-cover blur-2xl scale-125"
+            />
+          </div>
+        )}
+
         {/* Skeleton while poster is loading */}
-        {!isImageLoaded && (
-          <div className="absolute inset-0 bg-[#0e0e11] overflow-hidden">
+        {showSkeleton && (
+          <div className="absolute inset-0 bg-[#0e0e11] overflow-hidden pointer-events-none z-[1]">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.05] to-transparent animate-skeleton-shimmer" />
           </div>
         )}
@@ -154,19 +249,32 @@ function StoryCard({
           muted={isAudioMuted}
           loop
           playsInline
-          preload="metadata"
+          {...({ "webkit-playsinline": "true" } as any)}
+          preload="auto"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          onPlaying={() => setIsFramePlaying(true)}
+          onLoadedData={() => {
+            setIsVideoReady(true);
+            setIsImageLoaded(true);
+          }}
+          onCanPlay={() => {
+            setIsVideoReady(true);
+            setIsImageLoaded(true);
+          }}
+          onPlaying={() => {
+            setIsFramePlaying(true);
+            setIsVideoReady(true);
+            setIsImageLoaded(true);
+          }}
           className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
-            isVertical ? "object-contain" : "object-cover"
+            isVertical ? "object-contain relative z-[1]" : "object-cover"
           }`}
         />
 
-        {/* Poster Image: Stays 100% visible until the video actually renders moving frames */}
+        {/* Poster Image: Stays visible until the video actually renders moving frames */}
         <div
-          className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
-            isFramePlaying ? "opacity-0" : isImageLoaded ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 transition-opacity duration-300 pointer-events-none z-[2] ${
+            isFramePlaying ? "opacity-0" : "opacity-100"
           }`}
         >
           {item.poster && (
@@ -174,6 +282,8 @@ function StoryCard({
               src={resolveMediaUrl(item.poster)}
               alt={item.title}
               fill
+              unoptimized
+              priority={true}
               onLoad={handleImageLoad}
               onError={() => setIsImageLoaded(true)}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

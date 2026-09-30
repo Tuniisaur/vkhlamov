@@ -19,6 +19,7 @@ interface FramerVideoPlayerProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
   onMuteStateChange?: (isMuted: boolean) => void;
   onAspectRatioChange?: (isVertical: boolean, ratio: number) => void;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
   onReady?: () => void;
 }
 
@@ -41,6 +42,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       onPlayStateChange,
       onMuteStateChange,
       onAspectRatioChange,
+      onFullscreenChange,
       onReady,
     },
     forwardedRef
@@ -92,17 +94,25 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
   const hasAutoPlayedRef = useRef(false);
   const onPlayStateChangeRef = useRef(onPlayStateChange);
   const onMuteStateChangeRef = useRef(onMuteStateChange);
+  const onFullscreenChangeRef = useRef(onFullscreenChange);
 
   useEffect(() => {
     onPlayStateChangeRef.current = onPlayStateChange;
     onMuteStateChangeRef.current = onMuteStateChange;
+    onFullscreenChangeRef.current = onFullscreenChange;
   });
 
   const resolvedSrc = resolveMediaUrl(src);
+  const [isVerticalState, setIsVerticalState] = useState(aspectRatio === "9:16");
 
   useEffect(() => {
     hasAutoPlayedRef.current = false;
-  }, [resolvedSrc]);
+    if (aspectRatio === "9:16") {
+      setIsVerticalState(true);
+    } else if (aspectRatio === "16:9") {
+      setIsVerticalState(false);
+    }
+  }, [resolvedSrc, aspectRatio]);
   const resolvedPoster = poster ? resolveMediaUrl(poster) : undefined;
 
   // Format seconds to mm:ss or hh:mm:ss
@@ -200,12 +210,13 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     if (!video) return;
     const nextMuted = !video.muted;
     video.muted = nextMuted;
+    if (!nextMuted && video.volume === 0) {
+      video.volume = 1;
+    }
     setIsMuted(nextMuted);
     onMuteStateChangeRef.current?.(nextMuted);
     showToast(nextMuted ? "Muted" : "Unmuted");
   }, [showToast]);
-
-
 
   const toggleFullscreen = useCallback(() => {
     const video = videoRef.current as any;
@@ -216,43 +227,71 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       doc.fullscreenElement ||
       doc.webkitFullscreenElement ||
       doc.mozFullScreenElement ||
-      doc.msFullscreenElement
+      doc.msFullscreenElement ||
+      video?.webkitDisplayingFullscreen
     );
     if (!isFS) {
+      if (video && !video.muted && video.volume < 1) {
+        video.volume = 1;
+      }
+      setIsFullscreen(true);
+      onFullscreenChangeRef.current?.(true);
       pw.classList.add("going-fullscreen");
-      setTimeout(() => {
-        // Try player-wrap div first (desktop + Android Chrome)
+
+      const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/.test(navigator.userAgent);
+      if (isIPhone && video?.webkitEnterFullscreen) {
+        try {
+          video.webkitEnterFullscreen();
+        } catch {}
+      } else {
         const reqPw =
           pw.requestFullscreen ||
           pw.webkitRequestFullscreen ||
           pw.mozRequestFullScreen ||
           pw.msRequestFullscreen;
         if (reqPw) {
-          Promise.resolve(reqPw.call(pw)).catch(() => {
-            // Fallback: fullscreen video element directly (iOS Safari)
-            const reqVid =
-              video?.requestFullscreen ||
-              video?.webkitRequestFullscreen ||
-              video?.webkitEnterFullscreen;
-            if (reqVid) Promise.resolve(reqVid.call(video)).catch(() => {});
-          });
-        } else if (video) {
-          // iOS: go directly to video fullscreen
-          const reqVid =
-            video.requestFullscreen ||
-            video.webkitRequestFullscreen ||
-            video.webkitEnterFullscreen;
-          if (reqVid) Promise.resolve(reqVid.call(video)).catch(() => {});
+          try {
+            const p = reqPw.call(pw);
+            if (p && typeof p.catch === "function") {
+              p.catch(() => {
+                if (video?.webkitEnterFullscreen) {
+                  try {
+                    video.webkitEnterFullscreen();
+                  } catch {}
+                }
+              });
+            }
+          } catch {
+            if (video?.webkitEnterFullscreen) {
+              try {
+                video.webkitEnterFullscreen();
+              } catch {}
+            }
+          }
+        } else if (video?.webkitEnterFullscreen) {
+          try {
+            video.webkitEnterFullscreen();
+          } catch {}
         }
-        setTimeout(() => pw.classList.remove("going-fullscreen"), 600);
-      }, 80);
+      }
+      setTimeout(() => pw.classList.remove("going-fullscreen"), 600);
     } else {
+      setIsFullscreen(false);
+      onFullscreenChangeRef.current?.(false);
       const exit =
         doc.exitFullscreen ||
         doc.webkitExitFullscreen ||
         doc.mozCancelFullScreen ||
         doc.msExitFullscreen;
-      if (exit) exit.call(doc);
+      if (exit) {
+        try {
+          exit.call(doc);
+        } catch {}
+      } else if (video?.webkitExitFullscreen) {
+        try {
+          video.webkitExitFullscreen();
+        } catch {}
+      }
     }
   }, []);
 
@@ -375,6 +414,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     if (w && h) {
       setVideoAR(`${w} / ${h}`);
       const isVertical = h > w;
+      setIsVerticalState(isVertical);
       onAspectRatioChange?.(isVertical, w / h);
     }
     updateProgressDisplay(video.currentTime, video.duration || 0);
@@ -541,15 +581,42 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
         doc.fullscreenElement ||
         doc.webkitFullscreenElement ||
         doc.mozFullScreenElement ||
-        doc.msFullscreenElement
+        doc.msFullscreenElement ||
+        (videoRef.current as any)?.webkitDisplayingFullscreen
       );
       setIsFullscreen(isFS);
+      onFullscreenChangeRef.current?.(isFS);
+      if (isFS && videoRef.current && !videoRef.current.muted && videoRef.current.volume < 1) {
+        videoRef.current.volume = 1;
+      }
     };
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
+
+    const video = videoRef.current;
+    let onBeginFs: (() => void) | null = null;
+    let onEndFs: (() => void) | null = null;
+    if (video) {
+      onBeginFs = () => {
+        setIsFullscreen(true);
+        if (!video.muted && video.volume < 1) video.volume = 1;
+        onFullscreenChangeRef.current?.(true);
+      };
+      onEndFs = () => {
+        setIsFullscreen(false);
+        onFullscreenChangeRef.current?.(false);
+      };
+      video.addEventListener("webkitbeginfullscreen", onBeginFs);
+      video.addEventListener("webkitendfullscreen", onEndFs);
+    }
+
     return () => {
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("webkitfullscreenchange", onFsChange);
+      if (video && onBeginFs && onEndFs) {
+        video.removeEventListener("webkitbeginfullscreen", onBeginFs);
+        video.removeEventListener("webkitendfullscreen", onEndFs);
+      }
     };
   }, []);
 
@@ -581,10 +648,10 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
   return (
     <div
       ref={rootRef}
-      className={`framer-vp select-none ${className}`}
+      className={`framer-vp select-none ${isVerticalState ? "is-vertical" : ""} ${className}`}
       style={
         {
-          width: "100%",
+          width: isVerticalState ? "auto" : "100%",
           "--radius": `${cornerRadius}px`,
           "--progress-color": progressColor,
           "--fit": fit,

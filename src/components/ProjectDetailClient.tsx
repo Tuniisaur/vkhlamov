@@ -8,8 +8,7 @@ import { LOCALIZED_PROJECTS } from "@/data/translations";
 import { useSiteData } from "@/context/SiteDataContext";
 import CustomCursor from "@/components/CustomCursor";
 import InstagramIcon from "@/components/InstagramIcon";
-import { Mail, ArrowUp } from "lucide-react";
-import { formatVideoDuration, detectVideoDuration } from "@/utils/videoDuration";
+import { Mail, ArrowUp, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import FramerVideoPlayer from "@/components/FramerVideoPlayer";
 import LogoPreloader from "@/components/LogoPreloader";
@@ -21,6 +20,7 @@ interface SecondaryVideoBlockProps {
   onMuteChange: (m: boolean) => void;
   onPlay: () => void;
   onPause: () => void;
+  onFullscreenChange?: (isFs: boolean) => void;
   onReady?: () => void;
   videoRefCallback: (node: HTMLVideoElement | null) => void;
 }
@@ -32,13 +32,17 @@ function SecondaryVideoBlock({
   onMuteChange,
   onPlay,
   onPause,
+  onFullscreenChange,
   onReady,
   videoRefCallback,
 }: SecondaryVideoBlockProps) {
   const posterUrl = vid.poster ? resolveMediaUrl(vid.poster) : undefined;
+  const [isVertical, setIsVertical] = useState(false);
 
   return (
-    <div className="w-full flex flex-col items-start gap-3 animate-cinema-fade">
+    <div className={`w-full flex flex-col gap-3 animate-cinema-fade transition-all duration-500 ${
+      isVertical ? "items-center max-w-[420px] sm:max-w-[460px] mx-auto" : "items-start"
+    }`}>
       {vid.title && (
         <div className="w-full flex items-center justify-start gap-2 px-1">
           <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
@@ -47,25 +51,37 @@ function SecondaryVideoBlock({
           </h4>
         </div>
       )}
-      <FramerVideoPlayer
-        ref={videoRefCallback}
-        src={vid.url}
-        poster={posterUrl}
-        autoPlay={false}
-        muted={isMuted}
-        loop={true}
-        cornerRadius={14}
-        progressColor="#ffffff"
-        onReady={onReady}
-        onPlayStateChange={(playing) => {
-          if (playing) {
-            onPlay();
-          } else {
-            onPause();
-          }
-        }}
-        onMuteStateChange={onMuteChange}
-      />
+      <div className={`w-full flex justify-center ${isVertical ? "max-w-[420px] sm:max-w-[460px]" : "w-full"}`}>
+        <FramerVideoPlayer
+          ref={(el) => {
+            videoRefCallback(el);
+            if (el) {
+              const onBegin = () => onFullscreenChange?.(true);
+              const onEnd = () => onFullscreenChange?.(false);
+              el.addEventListener("webkitbeginfullscreen", onBegin);
+              el.addEventListener("webkitendfullscreen", onEnd);
+            }
+          }}
+          src={vid.url}
+          poster={posterUrl}
+          autoPlay={false}
+          muted={isMuted}
+          loop={true}
+          cornerRadius={14}
+          progressColor="#ffffff"
+          onReady={onReady}
+          onPlayStateChange={(playing) => {
+            if (playing) {
+              onPlay();
+            } else {
+              onPause();
+            }
+          }}
+          onMuteStateChange={onMuteChange}
+          onFullscreenChange={onFullscreenChange}
+          onAspectRatioChange={(vert) => setIsVertical(vert)}
+        />
+      </div>
       {vid.description && (
         <p className="w-full text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
           {vid.description}
@@ -144,8 +160,55 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const currentActiveVideoRef = useRef<number | null>(null);
   const manuallyPausedIndexRef = useRef<number | null>(null);
+  const fullscreenIndexRef = useRef<number | null>(null);
+  const applyAudioFadeRef = useRef<() => void>(() => {});
+
+  const handleFullscreenChange = useCallback((index: number, isFs: boolean) => {
+    if (isFs) {
+      fullscreenIndexRef.current = index;
+      currentActiveVideoRef.current = index;
+      manuallyPausedIndexRef.current = null;
+
+      if (index === 0) {
+        // Main video in fullscreen: ensure all secondary videos are paused
+        secondaryVideoRefs.current.forEach((v) => {
+          if (v && !v.paused) v.pause();
+        });
+        if (videoRef.current && videoRef.current.paused) {
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        const sIdx = index - 1;
+        // Secondary video in fullscreen: ensure main video is paused
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        // Pause all other secondary videos
+        secondaryVideoRefs.current.forEach((v, idx) => {
+          if (idx !== sIdx && v && !v.paused) {
+            v.pause();
+          }
+        });
+        const activeSec = secondaryVideoRefs.current[sIdx];
+        if (activeSec && activeSec.paused) {
+          activeSec.play().catch(() => {});
+        }
+      }
+      applyAudioFadeRef.current();
+    } else {
+      if (fullscreenIndexRef.current === index) {
+        fullscreenIndexRef.current = null;
+        applyAudioFadeRef.current();
+      }
+    }
+  }, []);
 
   const handleMainPlay = useCallback(() => {
+    // If a secondary video is in fullscreen, do not allow main video to play
+    if (fullscreenIndexRef.current !== null && fullscreenIndexRef.current !== 0) {
+      if (videoRef.current && !videoRef.current.paused) videoRef.current.pause();
+      return;
+    }
     manuallyPausedIndexRef.current = null;
     currentActiveVideoRef.current = 0;
     // Pause all secondary videos so there is no simultaneous playback
@@ -161,6 +224,12 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, []);
 
   const handleSecondaryPlay = useCallback((sIdx: number) => {
+    // If another video is in fullscreen, do not allow this secondary video to play
+    if (fullscreenIndexRef.current !== null && fullscreenIndexRef.current !== sIdx + 1) {
+      const v = secondaryVideoRefs.current[sIdx];
+      if (v && !v.paused) v.pause();
+      return;
+    }
     manuallyPausedIndexRef.current = null;
     currentActiveVideoRef.current = sIdx + 1;
     // Pause main top video
@@ -184,13 +253,85 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const activeVideoPoster = primaryVideo?.poster || project?.posterImage;
 
   const [isMuted, setIsMuted] = useState(false);
-  const [selectedStill, setSelectedStill] = useState<string | null>(null);
+  const [selectedStillIndex, setSelectedStillIndex] = useState<number | null>(null);
   const [isScrolledToStills, setIsScrolledToStills] = useState(false);
   const [bottomOffset, setBottomOffset] = useState(0);
-  const [detectedDuration, setDetectedDuration] = useState<string | null>(null);
   const [isProjectMediaReady, setIsProjectMediaReady] = useState(false);
   const [isVertical, setIsVertical] = useState(false);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
+
+  const projectStills = useMemo(() => project?.stills || [], [project?.stills]);
+
+  const handlePrevStill = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedStillIndex((prev) => {
+      if (prev === null || projectStills.length <= 1) return prev;
+      return prev > 0 ? prev - 1 : projectStills.length - 1;
+    });
+  }, [projectStills.length]);
+
+  const handleNextStill = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedStillIndex((prev) => {
+      if (prev === null || projectStills.length <= 1) return prev;
+      return prev < projectStills.length - 1 ? prev + 1 : 0;
+    });
+  }, [projectStills.length]);
+
+  const handleCloseLightbox = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedStillIndex(null);
+  }, []);
+
+  // Keyboard navigation for photo lightbox
+  useEffect(() => {
+    if (selectedStillIndex === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSelectedStillIndex(null);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrevStill();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNextStill();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedStillIndex, handlePrevStill, handleNextStill]);
+
+  // Touch swipe support for smartphone photo navigation
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleLightboxTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleLightboxTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = touchStartXRef.current - endX;
+    const diffY = touchStartYRef.current - endY;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+
+    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+      if (diffX > 0) {
+        handleNextStill();
+      } else {
+        handlePrevStill();
+      }
+    }
+  };
 
   // Check if video is already ready/cached
   useEffect(() => {
@@ -203,6 +344,23 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     }
   }, [projectId]);
 
+  // Listen for iOS Safari native fullscreen on primary video
+  useEffect(() => {
+    const mainVid = videoRef.current;
+    if (!mainVid) return;
+
+    const onMainBeginFs = () => handleFullscreenChange(0, true);
+    const onMainEndFs = () => handleFullscreenChange(0, false);
+
+    mainVid.addEventListener("webkitbeginfullscreen", onMainBeginFs);
+    mainVid.addEventListener("webkitendfullscreen", onMainEndFs);
+
+    return () => {
+      mainVid.removeEventListener("webkitbeginfullscreen", onMainBeginFs);
+      mainVid.removeEventListener("webkitendfullscreen", onMainEndFs);
+    };
+  }, [handleFullscreenChange]);
+
   // Reset states when navigating to another project
   useEffect(() => {
     setIsProjectMediaReady(false);
@@ -211,22 +369,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     secondaryVideoRefs.current = [];
     currentActiveVideoRef.current = null;
     manuallyPausedIndexRef.current = null;
+    fullscreenIndexRef.current = null;
+    setSelectedStillIndex(null);
   }, [projectId]);
-
-  // Detect duration for main video
-  useEffect(() => {
-    let isCancelled = false;
-    if (primaryVideo?.duration) {
-      setDetectedDuration(primaryVideo.duration);
-    } else if (primaryVideo?.url) {
-      detectVideoDuration(primaryVideo.url).then((dur) => {
-        if (!isCancelled && dur) setDetectedDuration(dur);
-      });
-    }
-    return () => {
-      isCancelled = true;
-    };
-  }, [primaryVideo]);
 
   // Always start at the very top of the page when opening or switching projects
   useEffect(() => {
@@ -270,14 +415,32 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   // Volume factor based purely on distance to "stills & frames"
   const getStillsFadeVolume = useCallback((): number => {
     if (typeof window === "undefined") return 1;
+
+    // In fullscreen, never fade audio based on background layout
+    if (fullscreenIndexRef.current !== null) {
+      return 1;
+    }
+
+    const doc = document as any;
+    if (
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement ||
+      (videoRef.current as any)?.webkitDisplayingFullscreen ||
+      secondaryVideoRefs.current.some((v) => (v as any)?.webkitDisplayingFullscreen)
+    ) {
+      return 1;
+    }
+
     const vh = window.innerHeight;
 
     if (stillsRef.current) {
       const stillsRect = stillsRef.current.getBoundingClientRect();
-      // When stills section approaches the bottom of the viewport (110% of vh),
-      // begin fading out smoothly until it reaches 35% of vh (where stills title and top frames are in view)
-      const fadeStart = vh * 1.1;
-      const fadeEnd = vh * 0.35;
+      // When stills section approaches the upper viewport area,
+      // begin fading smoothly (starting at 75% of vh, fully silent by 25% of vh)
+      const fadeStart = vh * 0.75;
+      const fadeEnd = vh * 0.25;
 
       if (stillsRect.top <= fadeEnd) {
         return 0;
@@ -290,6 +453,61 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   }, []);
 
   const applyAudioFade = useCallback(() => {
+    // 0. Fullscreen Mode: keep 100% volume for the fullscreen video and do not fade
+    const doc = typeof document !== "undefined" ? (document as any) : null;
+    const fsEl = doc
+      ? doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement ||
+        null
+      : null;
+
+    const isPrimaryFs =
+      fullscreenIndexRef.current === 0 ||
+      (videoRef.current &&
+        ((fsEl && (fsEl === videoRef.current || fsEl.contains(videoRef.current))) ||
+          (videoRef.current as any)?.webkitDisplayingFullscreen));
+
+    const secFsIdx =
+      fullscreenIndexRef.current !== null && fullscreenIndexRef.current > 0
+        ? fullscreenIndexRef.current - 1
+        : secondaryVideoRefs.current.findIndex(
+            (secVid) =>
+              secVid &&
+              ((fsEl && (fsEl === secVid || fsEl.contains(secVid))) ||
+                (secVid as any)?.webkitDisplayingFullscreen)
+          );
+
+    if (isPrimaryFs || secFsIdx !== -1 || fsEl) {
+      if (isPrimaryFs && videoRef.current) {
+        const shouldMute = isMutedRef.current;
+        videoRef.current.muted = shouldMute;
+        videoRef.current.volume = shouldMute ? 0 : 1;
+        secondaryVideoRefs.current.forEach((secVid) => {
+          if (secVid && !secVid.paused) secVid.pause();
+        });
+        return;
+      }
+
+      if (secFsIdx !== -1) {
+        const activeSec = secondaryVideoRefs.current[secFsIdx];
+        if (activeSec) {
+          const shouldMute = isMutedRef.current;
+          activeSec.muted = shouldMute;
+          activeSec.volume = shouldMute ? 0 : 1;
+        }
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        secondaryVideoRefs.current.forEach((secVid, idx) => {
+          if (idx !== secFsIdx && secVid && !secVid.paused) secVid.pause();
+        });
+        return;
+      }
+      return;
+    }
+
     const stillsVol = isMutedRef.current ? 0 : getStillsFadeVolume();
 
     // 1. Primary video: fades when scrolling down towards stills & frames, or if it scrolls off the top
@@ -338,9 +556,43 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     });
   }, [getStillsFadeVolume]);
 
+  useEffect(() => {
+    applyAudioFadeRef.current = applyAudioFade;
+  }, [applyAudioFade]);
+
   // Viewport autoplay: tracks which video has user viewpoint focus and automatically plays it
   const checkViewportAutoplay = useCallback(() => {
     if (typeof window === "undefined") return;
+
+    // Fullscreen guard: if ANY video is fullscreen, do NOT touch autoplay or play any background video!
+    if (fullscreenIndexRef.current !== null) {
+      return;
+    }
+
+    const doc = typeof document !== "undefined" ? (document as any) : null;
+    const fsEl = doc
+      ? doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement ||
+        null
+      : null;
+
+    const isPrimaryFs =
+      videoRef.current &&
+      ((fsEl && (fsEl === videoRef.current || fsEl.contains(videoRef.current))) ||
+        (videoRef.current as any)?.webkitDisplayingFullscreen);
+
+    const isSecFs = secondaryVideoRefs.current.some(
+      (secVid) =>
+        secVid &&
+        ((fsEl && (fsEl === secVid || fsEl.contains(secVid))) ||
+          (secVid as any)?.webkitDisplayingFullscreen)
+    );
+
+    if (isPrimaryFs || isSecFs || fsEl) {
+      return;
+    }
 
     const vh = window.innerHeight;
     const viewportCenter = vh / 2;
@@ -455,6 +707,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
     let ticking = false;
     const handleScroll = () => {
+      // Sync fullscreenIndexRef if exited fullscreen
+      const doc = document as any;
+      const isFS = !!(
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement ||
+        (videoRef.current as any)?.webkitDisplayingFullscreen ||
+        secondaryVideoRefs.current.some((v) => (v as any)?.webkitDisplayingFullscreen)
+      );
+      if (!isFS && fullscreenIndexRef.current !== null) {
+        fullscreenIndexRef.current = null;
+      }
+
       checkBottomOffset();
       checkViewportAutoplay();
       applyAudioFade();
@@ -478,11 +744,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize, { passive: true });
+    window.addEventListener("orientationchange", onScrollOrResize);
+    document.addEventListener("fullscreenchange", onScrollOrResize);
+    document.addEventListener("webkitfullscreenchange", onScrollOrResize);
     handleScroll();
 
     return () => {
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("orientationchange", onScrollOrResize);
+      document.removeEventListener("fullscreenchange", onScrollOrResize);
+      document.removeEventListener("webkitfullscreenchange", onScrollOrResize);
     };
   }, [applyAudioFade, checkViewportAutoplay]);
 
@@ -609,12 +881,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   <span className="text-white/80">{project.location}</span>
                 </>
               )}
-              {(detectedDuration || project.duration) && (
-                <>
-                  <span>•</span>
-                  <span>{detectedDuration || project.duration}</span>
-                </>
-              )}
             </div>
           </div>
 
@@ -629,7 +895,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           )}
 
           {/* Framer Video Player */}
-          <div className="w-full flex justify-center">
+          <div className={`w-full flex justify-center transition-all duration-500 ${
+            isVertical ? "max-w-[420px] sm:max-w-[460px] mx-auto" : "w-full"
+          }`}>
             <FramerVideoPlayer
               key={primaryVideo?.url || "main-player-video"}
               ref={videoRef}
@@ -653,17 +921,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 }
               }}
               onMuteStateChange={(m) => setIsMuted(m)}
+              onFullscreenChange={(fs) => handleFullscreenChange(0, fs)}
               onAspectRatioChange={(vert, ratio) => {
                 setIsVertical(vert);
                 setVideoAspectRatio(ratio);
-              }}
-              onTimeUpdate={(_, dur) => {
-                if (!detectedDuration && dur && !isNaN(dur) && isFinite(dur)) {
-                  const durStr = formatVideoDuration(dur);
-                  if (durStr && durStr !== "00:00") {
-                    setDetectedDuration(durStr);
-                  }
-                }
               }}
             />
           </div>
@@ -688,6 +949,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 onMuteChange={(m) => setIsMuted(m)}
                 onPlay={() => handleSecondaryPlay(sIdx)}
                 onPause={() => handleSecondaryPause(sIdx)}
+                onFullscreenChange={(fs) => handleFullscreenChange(sIdx + 1, fs)}
                 onReady={checkViewportAutoplay}
                 videoRefCallback={(el) => {
                   secondaryVideoRefs.current[sIdx] = el;
@@ -707,10 +969,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           {/* Stills Gallery - Due per riga su mobile (grid-cols-2), 3 su desktop (lg:grid-cols-3) */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6 w-full">
-            {project.stills?.map((still, idx) => (
+            {projectStills.map((still, idx) => (
               <div
                 key={idx}
-                onClick={() => setSelectedStill(still.url)}
+                onClick={() => setSelectedStillIndex(idx)}
                 className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-lg sm:rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
               >
                 <Image
@@ -755,33 +1017,86 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         </section>
       </main>
 
-      {/* ── 3. Lightbox Fullscreen per Immagine Singola con Dissolvenza Fluida ── */}
-      {selectedStill && (
+      {/* ── 3. Lightbox Fullscreen per Immagini con Navigazione Avanti / Indietro ── */}
+      {selectedStillIndex !== null && projectStills[selectedStillIndex] && (
         <div
-          onClick={() => setSelectedStill(null)}
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-8 safe-top safe-bottom cursor-pointer animate-cinema-fade"
+          onClick={handleCloseLightbox}
+          onTouchStart={handleLightboxTouchStart}
+          onTouchEnd={handleLightboxTouchEnd}
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-3 sm:p-6 md:p-8 safe-top safe-bottom cursor-pointer animate-cinema-fade select-none"
         >
-          <div className="w-full flex justify-end">
-            <button
-              onClick={() => setSelectedStill(null)}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-end text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform hover:scale-110 cursor-pointer"
+          {/* Top Bar: Counter & Close Button */}
+          <div className="w-full flex items-center justify-between z-30">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 font-mono text-xs text-white/80 tracking-widest bg-white/[0.08] border border-white/15 px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg"
             >
-              [ close × ]
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span>
+                {String(selectedStillIndex + 1).padStart(2, "0")} / {String(projectStills.length).padStart(2, "0")}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCloseLightbox}
+              className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.18] border border-white/15 hover:border-white/35 text-white/80 hover:text-white transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-95 shadow-lg group backdrop-blur-md"
+              title="Chiudi (Esc)"
+              aria-label="Chiudi"
+            >
+              <X className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" />
             </button>
           </div>
 
-          <div className="relative w-full max-w-5xl max-h-[80vh] aspect-[16/10] mx-auto overflow-hidden">
-            <Image
-              src={resolveMediaUrl(selectedStill)}
-              alt="Fullscreen film still"
-              fill
-              unoptimized
-              className="object-contain transition-transform duration-500 ease-out transform scale-100 hover:scale-[1.01]"
-            />
+          {/* Central Image Viewport with Floating Navigation Buttons */}
+          <div className="relative w-full flex-1 flex items-center justify-center my-2 sm:my-4 min-h-0">
+            {/* Previous Button */}
+            {projectStills.length > 1 && (
+              <button
+                type="button"
+                onClick={handlePrevStill}
+                aria-label="Foto precedente"
+                title="Precedente (Freccia sinistra)"
+                className="absolute left-1 sm:left-3 md:left-6 z-30 w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-black/60 hover:bg-black/85 border border-white/20 hover:border-white/50 text-white/80 hover:text-white backdrop-blur-xl transition-all duration-300 flex items-center justify-center cursor-pointer shadow-[0_4px_24px_rgba(0,0,0,0.8)] hover:scale-105 active:scale-95 group"
+              >
+                <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7 transition-transform duration-300 group-hover:-translate-x-0.5" />
+              </button>
+            )}
+
+            {/* The Image */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-5xl h-[70vh] sm:h-[75vh] md:h-[80vh] mx-auto overflow-hidden flex items-center justify-center pointer-events-auto"
+            >
+              <Image
+                key={projectStills[selectedStillIndex].url}
+                src={resolveMediaUrl(projectStills[selectedStillIndex].url)}
+                alt={`Film still ${selectedStillIndex + 1}`}
+                fill
+                unoptimized
+                priority
+                className="object-contain transition-all duration-300 ease-out"
+              />
+            </div>
+
+            {/* Next Button */}
+            {projectStills.length > 1 && (
+              <button
+                type="button"
+                onClick={handleNextStill}
+                aria-label="Foto successiva"
+                title="Successiva (Freccia destra)"
+                className="absolute right-1 sm:right-3 md:right-6 z-30 w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-black/60 hover:bg-black/85 border border-white/20 hover:border-white/50 text-white/80 hover:text-white backdrop-blur-xl transition-all duration-300 flex items-center justify-center cursor-pointer shadow-[0_4px_24px_rgba(0,0,0,0.8)] hover:scale-105 active:scale-95 group"
+              >
+                <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </button>
+            )}
           </div>
 
-          <div className="text-center text-xs font-mono text-white/40 tracking-wider transition-opacity duration-300 py-2">
-            [ tap anywhere to exit ]
+          {/* Bottom Navigation Hints */}
+          <div className="w-full flex items-center justify-center gap-4 text-center py-1 text-xs font-mono text-white/40 tracking-wider z-30">
+            <span className="hidden sm:inline">[ ← / → per navigare • esc o tocca fuori per uscire ]</span>
+            <span className="sm:hidden">[ tocca le frecce o scorri ]</span>
           </div>
         </div>
       )}

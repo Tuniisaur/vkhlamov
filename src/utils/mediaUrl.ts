@@ -78,6 +78,12 @@ export function resolveMediaUrl(url?: string | null): string {
     return `${activeBase}/${cleanKey}`;
   }
 
+  // Fallback: If it's a relative path starting with images/ or videos/, return as root-relative path (/images/... or /videos/...)
+  // This allows Next.js static asset serving from public/ and the specialized /images and /videos routes to work seamlessly
+  if (cleanKey.startsWith("images/") || cleanKey.startsWith("videos/")) {
+    return `/${cleanKey}`;
+  }
+
   // Fallback to streaming proxy
   return `/api/media/stream/${cleanKey}`;
 }

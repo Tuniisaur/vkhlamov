@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sound } from "@/utils/audio";
-import { X, Volume2, VolumeX, Gauge, MapPin, Calendar, Clock } from "lucide-react";
+import { X, Volume2, VolumeX, Gauge, MapPin, Calendar } from "lucide-react";
 import { TRANSLATIONS, LocalizedProject } from "@/data/translations";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 
@@ -42,6 +42,9 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
     if (!videoRef.current) return;
     const next = !isMuted;
     videoRef.current.muted = next;
+    if (!next && videoRef.current.volume === 0) {
+      videoRef.current.volume = 1;
+    }
     setIsMuted(next);
   };
 
@@ -98,7 +101,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
         <div className="overflow-y-auto mobile-touch-scroll p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Main Video Viewport */}
           <div className={`relative rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-300 flex items-center justify-center ${
-            isVertical ? "aspect-[9/16] max-h-[68vh] w-auto max-w-sm" : "aspect-video w-full"
+            isVertical ? "aspect-[9/16] max-h-[56vh] w-auto max-w-[320px]" : "aspect-video w-full"
           }`}>
             <video
               ref={videoRef}
@@ -132,7 +135,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
             </div>
             <div className="p-2.5 sm:p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
               <span className="text-neutral-500 block text-[9px] uppercase tracking-wider">TIMECODE</span>
-              <span className="text-white font-bold text-sm mt-0.5 block">{project.telemetry?.timecode || project.duration}</span>
+              <span className="text-white font-bold text-sm mt-0.5 block">{project.telemetry?.timecode || "--:--"}</span>
             </div>
             <div className="p-2.5 sm:p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
               <span className="text-neutral-500 block text-[9px] uppercase tracking-wider">{t.trackSector}</span>
@@ -150,10 +153,6 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-neutral-500" />
                 {project.year}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-neutral-500" />
-                {project.duration}
               </span>
             </div>
           </div>
