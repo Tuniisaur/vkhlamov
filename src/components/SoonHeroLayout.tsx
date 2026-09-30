@@ -6,6 +6,7 @@ import { LocalizedProject } from "@/data/translations";
 import { useSiteData, DEFAULT_ABOUT } from "@/context/SiteDataContext";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import MeanderGallery from "@/components/MeanderGallery";
+import AboutSection from "@/components/AboutSection";
 import InstagramIcon from "@/components/InstagramIcon";
 import { Mail, ArrowUp } from "lucide-react";
 
@@ -23,6 +24,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
   const [scrollY, setScrollY] = useState(0);
   const [windowHeight, setWindowHeight] = useState(900);
   const [isScrolledToProjects, setIsScrolledToProjects] = useState(false);
+  const [isScrolledToAbout, setIsScrolledToAbout] = useState(false);
   const [isSoundDismissedOnMobile, setIsSoundDismissedOnMobile] = useState(false);
   const [footerOffset, setFooterOffset] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -54,6 +56,16 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
       setScrollY(y);
       const inProjects = y > window.innerHeight * 0.45;
       setIsScrolledToProjects(inProjects);
+
+      const aboutEl = document.getElementById("about");
+      if (aboutEl) {
+        const rect = aboutEl.getBoundingClientRect();
+        const inAbout = rect.top <= window.innerHeight * 0.5 && rect.bottom >= window.innerHeight * 0.2;
+        setIsScrolledToAbout(inAbout);
+      } else {
+        setIsScrolledToAbout(false);
+      }
+
       checkFooterOffset();
 
       if (inProjects || y > 80) {
@@ -91,7 +103,9 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
       } else if (tabParam === "contact") {
         setTimeout(() => setActiveTab("contact"), 0);
       } else if (tabParam === "about") {
-        setTimeout(() => setActiveTab("about"), 0);
+        setTimeout(() => {
+          document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
+        }, 150);
       }
     }
   }, []);
@@ -119,14 +133,12 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
     }
   };
 
-  const handleAboutToggle = () => {
-    if (activeTab === "about") {
-      setActiveTab(null);
-    } else {
-      setActiveTab("about");
-      if (window.scrollY > 40) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
+  const scrollToAbout = () => {
+    setIsSoundDismissedOnMobile(true);
+    setActiveTab(null);
+    const el = document.getElementById("about");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -206,7 +218,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           <button
             onClick={scrollToProjects}
             className={`py-1.5 px-2 transition-all duration-300 ease-out cursor-pointer transform hover:-translate-y-0.5 ${
-              isScrolledToProjects && !activeTab
+              isScrolledToProjects && !activeTab && !isScrolledToAbout
                 ? "italic font-medium underline underline-offset-8 opacity-100 scale-105"
                 : "opacity-70 hover:opacity-100 hover:italic"
             }`}
@@ -215,9 +227,9 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           </button>
 
           <button
-            onClick={handleAboutToggle}
+            onClick={scrollToAbout}
             className={`py-1.5 px-2 transition-all duration-300 ease-out cursor-pointer transform hover:-translate-y-0.5 ${
-              activeTab === "about"
+              isScrolledToAbout && !activeTab
                 ? "italic font-medium underline underline-offset-8 opacity-100 scale-105"
                 : "opacity-70 hover:opacity-100 hover:italic"
             }`}
@@ -264,10 +276,10 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
             onPlaying={() => onHeroReady?.()}
             className="w-full h-full object-cover"
           />
-          {/* Subtle uniform film shading - gently darkens when about or contact info is displayed */}
+          {/* Subtle uniform film shading - gently darkens when contact info is displayed */}
           <div
             className={`absolute inset-0 transition-colors duration-500 pointer-events-none ${
-              activeTab === "contact" || activeTab === "about" ? "bg-black/70 backdrop-blur-[2px]" : "bg-black/25"
+              activeTab === "contact" ? "bg-black/70 backdrop-blur-[2px]" : "bg-black/25"
             }`}
           />
           {/* Bottom vignette gradient merging seamlessly into the gallery */}
@@ -331,72 +343,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-        ) : activeTab === "about" ? (
-          <div className="relative z-20 w-full max-w-6xl px-5 sm:px-12 my-auto pt-24 sm:pt-32 pb-14 max-h-[calc(100dvh-110px)] overflow-y-auto mobile-touch-scroll overscroll-contain grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-12 text-white animate-cinema-fade">
-            <div className="md:col-span-7 space-y-4 sm:space-y-6">
-              <span className="text-[10px] font-mono tracking-widest uppercase text-white/50 block">
-                {about.badge || "// PROFILE & DIRECTION"}
-              </span>
-              <p className="text-lg xs:text-xl sm:text-3xl md:text-4xl font-light leading-snug tracking-tight">
-                {about.title}
-              </p>
-              <p className="text-xs sm:text-base text-white/70 leading-relaxed font-light max-w-2xl whitespace-pre-line">
-                {about.bio}
-              </p>
-              {about.secondaryBio && (
-                <p className="text-xs sm:text-base text-white/60 leading-relaxed font-light max-w-2xl whitespace-pre-line">
-                  {about.secondaryBio}
-                </p>
-              )}
-            </div>
-
-            <div className="md:col-span-5 space-y-4 sm:space-y-6 font-mono text-xs sm:text-sm text-white/70 md:pl-8 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0">
-              {about.disciplines && (
-                <div>
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                    {about.disciplinesTitle || "DISCIPLINES & FOCUS"}
-                  </span>
-                  <p className="text-white font-light text-xs sm:text-sm whitespace-pre-line">
-                    {about.disciplines}
-                  </p>
-                </div>
-              )}
-
-              {Boolean(about.accreditations && about.accreditations.trim()) && (
-                <div>
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                    {about.accreditationsTitle || "ACCREDITATIONS"}
-                  </span>
-                  <p className="text-white font-light text-xs sm:text-sm whitespace-pre-line">
-                    {about.accreditations}
-                  </p>
-                </div>
-              )}
-
-              {about.base && (
-                <div>
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                    {about.baseTitle || "BASE & DEPLOYMENT"}
-                  </span>
-                  <p className="text-white font-light text-xs sm:text-sm whitespace-pre-line">
-                    {about.base}
-                  </p>
-                </div>
-              )}
-
-              {about.customBlocks &&
-                about.customBlocks.map((block) => (
-                  <div key={block.id}>
-                    <span className="text-white/40 block text-[10px] tracking-widest uppercase mb-1">
-                      {block.label}
-                    </span>
-                    <p className="text-white font-light text-xs sm:text-sm whitespace-pre-line">
-                      {block.value}
-                    </p>
-                  </div>
-                ))}
             </div>
           </div>
         ) : (
@@ -480,6 +426,9 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         <MeanderGallery onSelectProject={onSelectProject} />
       </section>
 
+      {/* ── 4. ABOUT SECTION: CINEMA PROFILE WITH PHOTO ON LEFT & INFO ON RIGHT ── */}
+      <AboutSection about={about} settings={settings} />
+
       {/* ── FLOATING RETURN TO TOP BUTTON (NEVER OVERLAPS FOOTER & SAFE AREA AWARE) ── */}
       <button
         onClick={scrollToTop}
@@ -491,7 +440,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         className={`fixed right-4 sm:right-8 z-40 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-full bg-black/85 hover:bg-black text-white/70 hover:text-white border border-white/20 hover:border-white/50 backdrop-blur-md font-mono text-[10px] sm:text-xs tracking-widest uppercase transition-[opacity,transform,background-color,border-color,color] duration-300 shadow-2xl hover:scale-105 active:scale-95 cursor-pointer group ${
           footerOffset === 0 ? "bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:bottom-8" : ""
         } ${
-          isScrolledToProjects
+          isScrolledToProjects || isScrolledToAbout
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-6 pointer-events-none"
         }`}
@@ -500,7 +449,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         <span>top</span>
       </button>
 
-      {/* ── 4. MINIMAL CINEMA FOOTER (RESPONSIVE & SAFE AREA) ── */}
+      {/* ── 5. MINIMAL CINEMA FOOTER (RESPONSIVE & SAFE AREA) ── */}
       <footer
         ref={footerRef}
         className="relative z-20 w-full py-6 px-4 sm:px-8 flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-0 items-center text-[10px] sm:text-xs font-mono uppercase tracking-widest text-white/50 bg-[#050505] border-t border-white/[0.06] safe-bottom"

@@ -1319,8 +1319,90 @@ export default function ManagePage() {
               <div className="lg:col-span-6 space-y-6 font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
-                    {"//"} colonna sinistra: direzione & biografia
+                    {"//"} colonna sinistra: foto, direzione & biografia
                   </span>
+                </div>
+
+                {/* Foto About Colonna Sinistra */}
+                <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/10">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="text-white/80 uppercase tracking-wider block font-bold text-xs">
+                        foto about (colonna sinistra)
+                      </label>
+                      <p className="text-[10px] text-white/40">
+                        Foto ritratto o cinema still mostrata a sinistra nella sezione about della homepage
+                      </p>
+                    </div>
+
+                    <label className="cursor-pointer">
+                      <span className="text-white hover:italic transition-colors text-[11px] underline underline-offset-4">
+                        {isUploading === "about-image" ? (
+                          <AnimatedLoadingText label="caricamento" />
+                        ) : (
+                          "[ + carica foto dal pc ]"
+                        )}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={isUploading === "about-image"}
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            try {
+                              setIsUploading("about-image");
+                              const path = await handleUploadFile(f, "image");
+                              if (path) {
+                                setAboutForm((prev) => ({ ...prev, image: path }));
+                              }
+                            } catch (err: any) {
+                              alert(`Errore caricamento immagine: ${err.message}`);
+                            } finally {
+                              setIsUploading(null);
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Manual path / URL */}
+                  <input
+                    type="text"
+                    value={aboutForm.image || ""}
+                    onChange={(e) =>
+                      setAboutForm({ ...aboutForm, image: e.target.value })
+                    }
+                    placeholder="/images/... oppure https://..."
+                    className="w-full bg-transparent border-b border-white/20 py-1.5 text-white/90 focus:outline-none focus:border-white transition-colors text-xs font-mono"
+                  />
+
+                  {/* Visual preview */}
+                  {aboutForm.image && (
+                    <div className="flex items-start gap-4 pt-2">
+                      <div className="relative w-28 aspect-[3/4] rounded-lg overflow-hidden border border-white/20 bg-black shrink-0">
+                        <img
+                          src={resolveMediaUrl(aboutForm.image)}
+                          alt="About preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-mono text-white/50 break-all">
+                          {aboutForm.image}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAboutForm({ ...aboutForm, image: "" })}
+                          className="text-red-400 hover:text-red-300 hover:italic text-[11px] font-mono cursor-pointer"
+                        >
+                          [ rimuovi foto ]
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
