@@ -17,43 +17,40 @@ export default function cloudflareLoader({ src, width, quality }: ImageLoaderPro
     return src;
   }
 
-  // 2. If the user explicitly disables edge resizing (serving original directly from Cloudflare R2/CDN)
+  // 2. Zone URL is required for Cloudflare Image Resizing to work on external hosts like *.vercel.app.
+  // Without a proxied Cloudflare custom domain, requests to /cdn-cgi/image/ return 404 from Vercel.
+  const zoneUrl = (process.env.NEXT_PUBLIC_CLOUDFLARE_ZONE_URL || "").trim().replace(/\/+$/, "");
+  if (!zoneUrl) {
+    return src;
+  }
+
+  // 3. If the user explicitly disables edge resizing
   if (process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGE_RESIZING === "false") {
     return src;
   }
 
-  // 3. Prevent double-wrapping if already transformed
+  // 4. Prevent double-wrapping if already transformed
   if (src.includes("/cdn-cgi/image/")) {
     return src;
   }
 
-  // 4. Build Cloudflare transformation parameters
+  // 5. Build Cloudflare transformation parameters
   const params: string[] = [`width=${width}`];
   if (quality) {
     params.push(`quality=${quality}`);
   } else {
     params.push("quality=80");
   }
-  params.push("format=auto"); // Automatically delivers WebP or AVIF based on browser Accept header
-  params.push("fit=scale-down"); // Smooth proportional fit without distortion
+  params.push("format=auto");
+  params.push("fit=scale-down");
   const paramsString = params.join(",");
 
-  // 5. Optional custom Cloudflare zone URL prefix (e.g. https://vkhlamov.com or https://media.vkhlamov.com)
-  const zoneUrl = (process.env.NEXT_PUBLIC_CLOUDFLARE_ZONE_URL || "").trim().replace(/\/+$/, "");
-
-  // 6. Absolute URLs (e.g. Cloudflare R2 public URL https://pub-xxx.r2.dev/...)
+  // 6. Absolute URLs
   if (src.startsWith("http://") || src.startsWith("https://")) {
-    if (zoneUrl) {
-      return `${zoneUrl}/cdn-cgi/image/${paramsString}/${src}`;
-    }
-    return `/cdn-cgi/image/${paramsString}/${src}`;
+    return `${zoneUrl}/cdn-cgi/image/${paramsString}/${src}`;
   }
 
-  // 7. Relative paths (e.g. /images/... or images/...)
+  // 7. Relative paths
   const cleanSrc = src.startsWith("/") ? src.slice(1) : src;
-  if (zoneUrl) {
-    return `${zoneUrl}/cdn-cgi/image/${paramsString}/${cleanSrc}`;
-  }
-
-  return `/cdn-cgi/image/${paramsString}/${cleanSrc}`;
+  return `${zoneUrl}/cdn-cgi/image/${paramsString}/${cleanSrc}`;
 }

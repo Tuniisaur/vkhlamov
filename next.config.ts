@@ -8,8 +8,7 @@ const nextConfig: NextConfig = {
     "Mac-mini-di-Matteo.local",
   ],
   images: {
-    loader: "custom",
-    loaderFile: "./src/utils/cloudflareImageLoader.ts",
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
