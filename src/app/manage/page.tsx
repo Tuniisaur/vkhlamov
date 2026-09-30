@@ -1695,9 +1695,20 @@ export default function ManagePage() {
                 </span>
               </div>
               <div className="relative rounded-2xl border border-white/15 bg-black/80 backdrop-blur-md overflow-hidden">
-                <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch text-white">
-                  {/* Left Column: Info Preview */}
-                  <div className="lg:col-span-7 p-6 sm:p-8 space-y-5 order-1">
+                <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch text-white relative">
+                  {/* Photo Layer: background on mobile with dark shading, right column on desktop */}
+                  <div className="absolute inset-0 lg:relative lg:inset-auto lg:col-span-5 border-t-0 lg:border-l border-white/10 bg-[#0c0c0e] order-1 lg:order-2 overflow-hidden">
+                    <img
+                      src={resolveMediaUrl(aboutForm.image || "/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
+                      alt="About preview"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
+                    />
+                    <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px] lg:hidden pointer-events-none" />
+                    <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Info Preview: directly on top on mobile, left column on desktop */}
+                  <div className="relative z-10 lg:col-span-7 p-6 sm:p-8 space-y-5 order-2 lg:order-1">
                     <span className="text-[10px] font-mono tracking-widest uppercase text-white/50 block">
                       {aboutForm.badge || "// ABOUT ME"}
                     </span>
@@ -1770,16 +1781,6 @@ export default function ManagePage() {
                           </div>
                         ))}
                     </div>
-                  </div>
-
-                  {/* Right Column: Full-Height Photo Preview */}
-                  <div className="lg:col-span-5 relative min-h-[340px] lg:min-h-full border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0c0c0e] order-2 overflow-hidden">
-                    <img
-                      src={resolveMediaUrl(aboutForm.image || "/images/still-2026-09-23-130212_1-2-1-5306.jpg")}
-                      alt="About preview"
-                      className="absolute inset-0 w-full h-full object-cover object-center"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
                   </div>
                 </div>
               </div>

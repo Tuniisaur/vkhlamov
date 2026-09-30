@@ -30,9 +30,27 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
       id="about"
       className="relative w-full min-h-screen bg-[#050505] border-t border-white/[0.04] scroll-mt-16 select-none overflow-hidden"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-screen items-stretch">
-        {/* ── LEFT COLUMN: ALL PROFILE & CAREER INFORMATION (CLEAN BACKGROUND, NO VIDEO TEXTURE) ── */}
-        <div className="lg:col-span-7 flex flex-col justify-center px-6 sm:px-12 md:px-16 lg:px-14 xl:px-20 2xl:px-24 py-16 sm:py-24 lg:py-28 text-white order-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-screen items-stretch relative">
+        {/* ── PHOTO LAYER: Full-screen background on mobile (with dark overlay), Column 5/12 on desktop ── */}
+        <div className="absolute inset-0 lg:relative lg:inset-auto lg:col-span-5 w-full h-full lg:self-stretch order-1 lg:order-2 border-t-0 lg:border-l border-white/[0.08] bg-[#0c0c0e] overflow-hidden">
+          <div className="relative w-full h-full lg:min-h-screen lg:sticky lg:top-0 overflow-hidden group">
+            <Image
+              src={resolveMediaUrl(photoSrc)}
+              alt="Valeriy Khlamov - Director of Photography"
+              fill
+              sizes="(max-width: 1024px) 100vw, 45vw"
+              className="object-cover object-center w-full h-full brightness-90 lg:brightness-95 contrast-[1.02] transition-transform duration-1000 ease-out group-hover:scale-[1.02]"
+              priority={false}
+            />
+            {/* Mobile dark film shading matching hero contact (bg-black/75 backdrop-blur-[2px]) so text on top is crisp and readable */}
+            <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px] lg:hidden pointer-events-none" />
+            {/* Desktop subtle atmospheric vignette */}
+            <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+          </div>
+        </div>
+
+        {/* ── TEXT & INFO COLUMN: Sitting directly on top of the photo on mobile (z-10), Left Column on desktop ── */}
+        <div className="relative z-10 lg:col-span-7 flex flex-col justify-center px-5 sm:px-10 md:px-14 lg:px-14 xl:px-20 2xl:px-24 py-16 sm:py-24 lg:py-28 text-white order-2 lg:order-1">
           <div className="max-w-2xl w-full mx-auto lg:mr-0 lg:ml-auto space-y-8 sm:space-y-10">
             {/* 1. Badge & Title */}
             <div className="space-y-4">
@@ -47,7 +65,7 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
             </div>
 
             {/* 2. Narrative Bio & Secondary Bio */}
-            <div className="space-y-4 text-white/75 leading-relaxed font-light text-sm sm:text-base md:text-lg">
+            <div className="space-y-4 text-white/80 leading-relaxed font-light text-sm sm:text-base md:text-lg">
               <p className="whitespace-pre-line">
                 {about.bio}
               </p>
@@ -167,22 +185,6 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* ── RIGHT COLUMN: FULL-HEIGHT DIRECTOR PHOTO (ALTA COME LA PAGINA) ── */}
-        <div className="lg:col-span-5 relative w-full self-stretch order-2 border-t lg:border-t-0 lg:border-l border-white/[0.08] bg-[#0c0c0e]">
-          <div className="relative w-full h-[70vh] sm:h-[85vh] lg:h-full lg:min-h-screen lg:sticky lg:top-0 overflow-hidden group">
-            <Image
-              src={resolveMediaUrl(photoSrc)}
-              alt="Valeriy Khlamov - Director of Photography"
-              fill
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              className="object-cover object-center w-full h-full brightness-95 contrast-[1.02] transition-transform duration-1000 ease-out group-hover:scale-[1.02]"
-              priority={false}
-            />
-            {/* Subtle atmospheric vignette */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
