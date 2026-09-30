@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LocalizedProject } from "@/data/translations";
@@ -64,6 +64,9 @@ function StoryCard({
 }) {
   const containerRef = useRef<HTMLAnchorElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isHoveringRef = useRef(false);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
   const [isDesktopHover, setIsDesktopHover] = useState(false);
   const [isFramePlaying, setIsFramePlaying] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(!item.poster);
@@ -104,6 +107,7 @@ function StoryCard({
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting && !video.paused) {
+            isHoveringRef.current = false;
             video.pause();
             setIsFramePlaying(false);
           }
@@ -115,8 +119,7 @@ function StoryCard({
     return () => observer.disconnect();
   }, [isDesktopHover]);
 
-  const handleMouseEnter = () => {
-    if (!isDesktopHover) return;
+  const playVideo = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
 
@@ -124,27 +127,91 @@ function StoryCard({
       video.preload = "auto";
     }
 
-    const p = video.play();
-    if (p !== undefined) {
-      p.catch(() => {});
+    // If media element is uninitialized, force fresh load
+    if (video.readyState === 0 || video.error || video.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+      try {
+        video.load();
+      } catch {}
     }
+
+    const promise = video.play();
+    if (promise !== undefined) {
+      playPromiseRef.current = promise;
+      promise
+        .then(() => {
+          playPromiseRef.current = null;
+          // If cursor already left before play resolved, pause safely
+          if (!isHoveringRef.current && !video.paused) {
+            video.pause();
+            setIsFramePlaying(false);
+          }
+        })
+        .catch((err) => {
+          playPromiseRef.current = null;
+          if (err?.name === "AbortError") return;
+          // If browser policy blocked playback, ensure muted and retry
+          if (err?.name === "NotAllowedError" && !video.muted) {
+            video.muted = true;
+            setIsAudioMuted(true);
+            video.play().catch(() => {});
+          }
+        });
+    }
+  }, []);
+
+  const pauseVideo = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    setIsFramePlaying(false);
+    setProgress(0);
+
+    // If play promise is still pending, wait for it to settle to prevent AbortError stalls
+    if (playPromiseRef.current) {
+      playPromiseRef.current
+        .then(() => {
+          if (!isHoveringRef.current && !video.paused) {
+            video.pause();
+            try {
+              if (video.readyState > 0) {
+                video.currentTime = 0;
+              }
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    } else {
+      if (!video.paused) {
+        video.pause();
+      }
+      try {
+        if (video.readyState > 0) {
+          video.currentTime = 0;
+        }
+      } catch {}
+    }
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (!isDesktopHover) return;
+    isHoveringRef.current = true;
+    playVideo();
   };
 
   const handleMouseLeave = () => {
     if (!isDesktopHover) return;
-
-    setIsFramePlaying(false);
-    setProgress(0);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
+    isHoveringRef.current = false;
+    pauseVideo();
   };
 
   const handleTimeUpdate = () => {
-    if (videoRef.current && videoRef.current.duration) {
-      const p = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+    const v = videoRef.current;
+    if (v && v.duration) {
+      const p = (v.currentTime / v.duration) * 100;
       setProgress(p);
+      if (v.currentTime > 0.05 && !isFramePlaying) {
+        setIsFramePlaying(true);
+      }
     }
   };
 
@@ -215,11 +282,24 @@ function StoryCard({
             muted={isAudioMuted}
             loop
             playsInline
-            preload="none"
+            preload="metadata"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onPlaying={() => {
               setIsFramePlaying(true);
+            }}
+            onCanPlay={() => {
+              if (isHoveringRef.current && videoRef.current?.paused) {
+                playVideo();
+              }
+            }}
+            onError={() => {
+              if (videoRef.current && isHoveringRef.current) {
+                try {
+                  videoRef.current.load();
+                  playVideo();
+                } catch {}
+              }
             }}
             className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
               isVertical ? "object-contain relative z-[1]" : "object-cover"
