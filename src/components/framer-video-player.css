@@ -33,32 +33,30 @@
   transition: border-radius 0.45s var(--ease-out);
 }
 .framer-vp.is-vertical {
-  width: auto !important;
-  max-width: min(100%, 420px) !important;
-  margin: 0 auto;
+  width: 100% !important;
+  max-width: min(calc(min(70vh, 620px) * (9 / 16)), 380px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 .framer-vp.is-vertical .player-wrap {
-  width: auto;
-  max-height: min(72vh, 640px);
+  width: 100% !important;
+  max-width: 100% !important;
   margin: 0 auto;
   box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .framer-vp.is-vertical .media {
-  width: auto;
-  height: 100%;
-  max-height: min(72vh, 640px);
-  aspect-ratio: var(--ar-fixed, 9 / 16);
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: var(--ar-fixed, 9 / 16) !important;
+  background: #000;
 }
 
 @media (max-width: 640px) {
   .framer-vp.is-vertical {
-    max-width: min(100%, 340px) !important;
-  }
-  .framer-vp.is-vertical .player-wrap,
-  .framer-vp.is-vertical .media {
-    max-height: min(62vh, 480px);
+    max-width: min(calc(min(65vh, 520px) * (9 / 16)), 330px) !important;
   }
 }
 

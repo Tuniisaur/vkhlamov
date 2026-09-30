@@ -51,7 +51,7 @@ function SecondaryVideoBlock({
           </h4>
         </div>
       )}
-      <div className={`w-full flex justify-center ${isVertical ? "max-w-[420px] sm:max-w-[460px]" : "w-full"}`}>
+      <div className={`w-full flex justify-center ${isVertical ? "max-w-[380px] sm:max-w-[420px] mx-auto" : "w-full"}`}>
         <FramerVideoPlayer
           ref={(el) => {
             videoRefCallback(el);
@@ -896,7 +896,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           {/* Framer Video Player */}
           <div className={`w-full flex justify-center transition-all duration-500 ${
-            isVertical ? "max-w-[420px] sm:max-w-[460px] mx-auto" : "w-full"
+            isVertical ? "max-w-[380px] sm:max-w-[420px] mx-auto" : "w-full"
           }`}>
             <FramerVideoPlayer
               key={primaryVideo?.url || "main-player-video"}

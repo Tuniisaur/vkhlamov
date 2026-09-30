@@ -101,7 +101,7 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
         <div className="overflow-y-auto mobile-touch-scroll p-4 sm:p-8 space-y-4 sm:space-y-6">
           {/* Main Video Viewport */}
           <div className={`relative rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-300 flex items-center justify-center ${
-            isVertical ? "aspect-[9/16] max-h-[56vh] w-auto max-w-[320px]" : "aspect-video w-full"
+            isVertical ? "aspect-[9/16] max-h-[60vh] w-full max-w-[320px]" : "aspect-video w-full"
           }`}>
             <video
               ref={videoRef}

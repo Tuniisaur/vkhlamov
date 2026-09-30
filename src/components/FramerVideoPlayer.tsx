@@ -651,7 +651,7 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       className={`framer-vp select-none ${isVerticalState ? "is-vertical" : ""} ${className}`}
       style={
         {
-          width: isVerticalState ? "auto" : "100%",
+          width: "100%",
           "--radius": `${cornerRadius}px`,
           "--progress-color": progressColor,
           "--fit": fit,
