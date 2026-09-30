@@ -263,9 +263,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const projectStills = useMemo(() => project?.stills || [], [project?.stills]);
   const [loadedStills, setLoadedStills] = useState<Record<string, boolean>>({});
 
-  // Gentle prefetching for stills: only triggers when user scrolls near the stills section
+  // Gentle prefetching for stills: ONLY triggers after video is ready AND user is near the stills section
   useEffect(() => {
-    if (!projectStills.length || typeof window === "undefined") return;
+    if (!projectStills.length || typeof window === "undefined" || !isProjectMediaReady) return;
     const stillsEl = stillsRef.current;
     if (!stillsEl) return;
 
@@ -274,8 +274,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting) && !hasPrefetched) {
           hasPrefetched = true;
-          // Prefetch in small sequential intervals so video streaming is never starved
-          projectStills.slice(0, 12).forEach((s, idx) => {
+          // Prefetch in small sequential intervals so video streaming is NEVER starved
+          projectStills.slice(0, 8).forEach((s, idx) => {
             if (!s.url) return;
             const src = resolveMediaUrl(s.url);
             if (src) {
@@ -285,18 +285,18 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   setLoadedStills((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
                 };
                 img.src = src;
-              }, idx * 150);
+              }, idx * 250);
             }
           });
           observer.disconnect();
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "150px" }
     );
 
     observer.observe(stillsEl);
     return () => observer.disconnect();
-  }, [projectStills]);
+  }, [projectStills, isProjectMediaReady]);
 
   // Priority prefetching for adjacent stills when lightbox is open
   useEffect(() => {
@@ -906,6 +906,15 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
       {/* ── 2. MAIN CONTENT: IN PRIMO PIANO IL VIDEO + SOTTO LE FOTO COLLEGATE ── */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 md:px-8 pt-3 sm:pt-6 pb-12 sm:pb-24 space-y-6 sm:space-y-12">
+        {/* Prioritize Video: Browser Preload Hint */}
+        {primaryVideo && (
+          <link
+            rel="preload"
+            as="video"
+            href={resolveMediaUrl(primaryVideo.url || project.fullVideoUrl || project.videoPreviewUrl)}
+            type="video/mp4"
+          />
+        )}
         
         {/* Back to Projects Navigation Button (outside header) */}
         <div className="flex items-center justify-start pt-1 sm:pt-2">
@@ -1038,20 +1047,26 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   onClick={() => setSelectedStillIndex(idx)}
                   className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-lg sm:rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
                 >
-                  <Image
-                    src={stillUrl}
-                    alt=""
-                    fill
-                    unoptimized
-                    loading={idx < 6 ? "eager" : "lazy"}
-                    priority={idx < 4}
-                    onLoad={() => {
-                      if (stillUrl) {
-                        setLoadedStills((prev) => (prev[stillUrl] ? prev : { ...prev, [stillUrl]: true }));
-                      }
-                    }}
-                    className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
-                  />
+                  {/* Prioritize video first: only mount image requests once video is ready or user scrolled to stills */}
+                  {(isProjectMediaReady || isScrolledToStills) ? (
+                    <Image
+                      src={stillUrl}
+                      alt=""
+                      fill
+                      unoptimized
+                      loading="lazy"
+                      fetchPriority="low"
+                      decoding="async"
+                      onLoad={() => {
+                        if (stillUrl) {
+                          setLoadedStills((prev) => (prev[stillUrl] ? prev : { ...prev, [stillUrl]: true }));
+                        }
+                      }}
+                      className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-[#0e0e11] animate-pulse" />
+                  )}
                 </div>
               );
             })}
