@@ -55,12 +55,6 @@ function SecondaryVideoBlock({
         <FramerVideoPlayer
           ref={(el) => {
             videoRefCallback(el);
-            if (el) {
-              const onBegin = () => onFullscreenChange?.(true);
-              const onEnd = () => onFullscreenChange?.(false);
-              el.addEventListener("webkitbeginfullscreen", onBegin);
-              el.addEventListener("webkitendfullscreen", onEnd);
-            }
           }}
           src={vid.url}
           poster={posterUrl}
@@ -639,19 +633,16 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         null
       : null;
 
-    const isPrimaryFs =
-      videoRef.current &&
-      ((fsEl && (fsEl === videoRef.current || fsEl.contains(videoRef.current))) ||
-        (videoRef.current as any)?.webkitDisplayingFullscreen);
+    if (fsEl) {
+      return;
+    }
 
+    const isPrimaryFs = (videoRef.current as any)?.webkitDisplayingFullscreen;
     const isSecFs = secondaryVideoRefs.current.some(
-      (secVid) =>
-        secVid &&
-        ((fsEl && (fsEl === secVid || fsEl.contains(secVid))) ||
-          (secVid as any)?.webkitDisplayingFullscreen)
+      (secVid) => (secVid as any)?.webkitDisplayingFullscreen
     );
 
-    if (isPrimaryFs || isSecFs || fsEl) {
+    if (isPrimaryFs || isSecFs) {
       return;
     }
 
@@ -778,8 +769,13 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         (videoRef.current as any)?.webkitDisplayingFullscreen ||
         secondaryVideoRefs.current.some((v) => (v as any)?.webkitDisplayingFullscreen)
       );
-      if (!isFS && fullscreenIndexRef.current !== null) {
-        fullscreenIndexRef.current = null;
+      if (!isFS) {
+        if (fullscreenIndexRef.current !== null) {
+          fullscreenIndexRef.current = null;
+        }
+      } else {
+        // While ANY video is in fullscreen, do not run viewport autoplay or background scroll recalculations
+        return;
       }
 
       checkBottomOffset();

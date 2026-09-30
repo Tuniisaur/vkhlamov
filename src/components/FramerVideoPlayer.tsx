@@ -223,14 +223,17 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     const pw = playerWrapRef.current as any;
     if (!pw) return;
     const doc = document as any;
-    const isFS = !!(
+    const fsEl =
       doc.fullscreenElement ||
       doc.webkitFullscreenElement ||
       doc.mozFullScreenElement ||
       doc.msFullscreenElement ||
+      null;
+    const isThisFS = !!(
+      (fsEl && (fsEl === pw || pw.contains(fsEl) || fsEl === video)) ||
       video?.webkitDisplayingFullscreen
     );
-    if (!isFS) {
+    if (!isThisFS) {
       if (video && !video.muted && video.volume < 1) {
         video.volume = 1;
       }
@@ -579,17 +582,26 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
   useEffect(() => {
     const onFsChange = () => {
       const doc = document as any;
-      const isFS = !!(
+      const pw = playerWrapRef.current;
+      const video = videoRef.current;
+      const fsEl =
         doc.fullscreenElement ||
         doc.webkitFullscreenElement ||
         doc.mozFullScreenElement ||
         doc.msFullscreenElement ||
-        (videoRef.current as any)?.webkitDisplayingFullscreen
+        null;
+      const isThisFS = !!(
+        (fsEl && (fsEl === pw || pw?.contains(fsEl) || fsEl === video)) ||
+        (video as any)?.webkitDisplayingFullscreen
       );
-      setIsFullscreen(isFS);
-      onFullscreenChangeRef.current?.(isFS);
-      if (isFS && videoRef.current && !videoRef.current.muted && videoRef.current.volume < 1) {
-        videoRef.current.volume = 1;
+      setIsFullscreen((prev) => {
+        if (prev !== isThisFS) {
+          onFullscreenChangeRef.current?.(isThisFS);
+        }
+        return isThisFS;
+      });
+      if (isThisFS && video && !video.muted && video.volume < 1) {
+        video.volume = 1;
       }
     };
     document.addEventListener("fullscreenchange", onFsChange);
