@@ -28,12 +28,12 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
   return (
     <section
       id="about"
-      className="relative w-full min-h-screen bg-[#050505] py-20 sm:py-32 border-t border-white/[0.04] scroll-mt-16 select-none"
+      className="relative w-full min-h-screen bg-[#050505] border-t border-white/[0.04] scroll-mt-16 select-none overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 sm:gap-14 lg:gap-16 items-start">
-          {/* ── LEFT COLUMN: ALL PROFILE & CAREER INFORMATION (CLEAN BACKGROUND, NO VIDEO TEXTURE) ── */}
-          <div className="lg:col-span-7 flex flex-col space-y-8 sm:space-y-10 text-white lg:pr-6 order-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-screen items-stretch">
+        {/* ── LEFT COLUMN: ALL PROFILE & CAREER INFORMATION (CLEAN BACKGROUND, NO VIDEO TEXTURE) ── */}
+        <div className="lg:col-span-7 flex flex-col justify-center px-6 sm:px-12 md:px-16 lg:px-14 xl:px-20 2xl:px-24 py-16 sm:py-24 lg:py-28 text-white order-1">
+          <div className="max-w-2xl w-full mx-auto lg:mr-0 lg:ml-auto space-y-8 sm:space-y-10">
             {/* 1. Badge & Title */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-mono tracking-widest uppercase text-white/50">
@@ -168,26 +168,21 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ── RIGHT COLUMN: DIRECTOR / CINEMA PHOTO ── */}
-          <div className="lg:col-span-5 w-full flex flex-col items-center lg:items-end lg:sticky lg:top-28 order-2">
-            <div className="relative w-full max-w-[440px] aspect-[3/4] sm:aspect-[4/5] lg:aspect-[3/4] rounded-2xl overflow-hidden bg-[#0c0c0e] border border-white/[0.08] shadow-[0_25px_60px_rgba(0,0,0,0.85)] group">
-              {/* Subtle cinema viewfinder corner brackets */}
-              <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-white/30 z-10 pointer-events-none" />
-              <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-white/30 z-10 pointer-events-none" />
-              <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/30 z-10 pointer-events-none" />
-              <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/30 z-10 pointer-events-none" />
-
-              {/* Main Photo with smooth hover zoom */}
-              <Image
-                src={resolveMediaUrl(photoSrc)}
-                alt="Valeriy Khlamov - Director of Photography"
-                fill
-                sizes="(max-width: 1024px) 100vw, 42vw"
-                className="object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.03]"
-                priority={false}
-              />
-            </div>
+        {/* ── RIGHT COLUMN: FULL-HEIGHT DIRECTOR PHOTO (ALTA COME LA PAGINA) ── */}
+        <div className="lg:col-span-5 relative w-full self-stretch order-2 border-t lg:border-t-0 lg:border-l border-white/[0.08] bg-[#0c0c0e]">
+          <div className="relative w-full h-[70vh] sm:h-[85vh] lg:h-full lg:min-h-screen lg:sticky lg:top-0 overflow-hidden group">
+            <Image
+              src={resolveMediaUrl(photoSrc)}
+              alt="Valeriy Khlamov - Director of Photography"
+              fill
+              sizes="(max-width: 1024px) 100vw, 45vw"
+              className="object-cover object-center w-full h-full brightness-95 contrast-[1.02] transition-transform duration-1000 ease-out group-hover:scale-[1.02]"
+              priority={false}
+            />
+            {/* Subtle atmospheric vignette */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
