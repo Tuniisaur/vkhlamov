@@ -261,6 +261,53 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
 
   const projectStills = useMemo(() => project?.stills || [], [project?.stills]);
+  const [loadedStills, setLoadedStills] = useState<Record<string, boolean>>({});
+
+  // Background prefetching: preload all stills into browser cache immediately
+  useEffect(() => {
+    if (!projectStills.length || typeof window === "undefined") return;
+
+    const timer = setTimeout(() => {
+      projectStills.forEach((s) => {
+        if (!s.url) return;
+        const src = resolveMediaUrl(s.url);
+        if (src) {
+          const img = new window.Image();
+          img.onload = () => {
+            setLoadedStills((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
+          };
+          img.src = src;
+        }
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [projectStills]);
+
+  // Priority prefetching for adjacent stills when lightbox is open
+  useEffect(() => {
+    if (selectedStillIndex === null || !projectStills.length || typeof window === "undefined") return;
+
+    const adjacentIndices = [
+      (selectedStillIndex + 1) % projectStills.length,
+      (selectedStillIndex - 1 + projectStills.length) % projectStills.length,
+      (selectedStillIndex + 2) % projectStills.length,
+    ];
+
+    adjacentIndices.forEach((idx) => {
+      const url = projectStills[idx]?.url;
+      if (url) {
+        const src = resolveMediaUrl(url);
+        if (src) {
+          const img = new window.Image();
+          img.onload = () => {
+            setLoadedStills((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
+          };
+          img.src = src;
+        }
+      }
+    });
+  }, [selectedStillIndex, projectStills]);
 
   const handlePrevStill = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -969,22 +1016,31 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
           {/* Stills Gallery - Due per riga su mobile (grid-cols-2), 3 su desktop (lg:grid-cols-3) */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6 w-full">
-            {projectStills.map((still, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedStillIndex(idx)}
-                className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-lg sm:rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
-              >
-                <Image
-                  src={resolveMediaUrl(still.url)}
-                  alt=""
-                  fill
-                  loading="lazy"
-                  sizes="(max-width: 1024px) 50vw, 33vw"
-                  className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
-                />
-              </div>
-            ))}
+            {projectStills.map((still, idx) => {
+              const stillUrl = resolveMediaUrl(still.url);
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedStillIndex(idx)}
+                  className="group cursor-pointer relative w-full aspect-[16/10] overflow-hidden rounded-lg sm:rounded-xl bg-[#0c0c0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+                >
+                  <Image
+                    src={stillUrl}
+                    alt=""
+                    fill
+                    unoptimized
+                    loading={idx < 6 ? "eager" : "lazy"}
+                    priority={idx < 4}
+                    onLoad={() => {
+                      if (stillUrl) {
+                        setLoadedStills((prev) => (prev[stillUrl] ? prev : { ...prev, [stillUrl]: true }));
+                      }
+                    }}
+                    className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] opacity-95 group-hover:opacity-100 group-hover:scale-[1.04]"
+                  />
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -1068,15 +1124,37 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               onClick={(e) => e.stopPropagation()}
               className="relative w-full max-w-5xl h-[70vh] sm:h-[75vh] md:h-[80vh] mx-auto overflow-hidden flex items-center justify-center pointer-events-auto"
             >
-              <Image
-                key={projectStills[selectedStillIndex].url}
-                src={resolveMediaUrl(projectStills[selectedStillIndex].url)}
-                alt={`Film still ${selectedStillIndex + 1}`}
-                fill
-                unoptimized
-                priority
-                className="object-contain transition-all duration-300 ease-out"
-              />
+              {(() => {
+                const currentUrl = resolveMediaUrl(projectStills[selectedStillIndex].url);
+                const isLoaded = Boolean(loadedStills[currentUrl]);
+                return (
+                  <>
+                    {/* Sleek Minimal Cinema Spinner while image is loading */}
+                    {!isLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                        <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-white/80 animate-spin" />
+                      </div>
+                    )}
+
+                    <Image
+                      key={projectStills[selectedStillIndex].url}
+                      src={currentUrl}
+                      alt={`Film still ${selectedStillIndex + 1}`}
+                      fill
+                      unoptimized
+                      priority
+                      onLoad={() => {
+                        if (currentUrl) {
+                          setLoadedStills((prev) => (prev[currentUrl] ? prev : { ...prev, [currentUrl]: true }));
+                        }
+                      }}
+                      className={`object-contain transition-all duration-300 ease-out ${
+                        isLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.99]"
+                      }`}
+                    />
+                  </>
+                );
+              })()}
             </div>
 
             {/* Next Button */}
