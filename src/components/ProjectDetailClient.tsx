@@ -1053,10 +1053,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                       src={stillUrl}
                       alt=""
                       fill
-                      unoptimized
                       loading="lazy"
                       fetchPriority="low"
                       decoding="async"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                       onLoad={() => {
                         if (stillUrl) {
                           setLoadedStills((prev) => (prev[stillUrl] ? prev : { ...prev, [stillUrl]: true }));
@@ -1170,8 +1170,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                       src={currentUrl}
                       alt={`Film still ${selectedStillIndex + 1}`}
                       fill
-                      unoptimized
                       priority
+                      sizes="(max-width: 1200px) 100vw, 1920px"
                       onLoad={() => {
                         if (currentUrl) {
                           setLoadedStills((prev) => (prev[currentUrl] ? prev : { ...prev, [currentUrl]: true }));

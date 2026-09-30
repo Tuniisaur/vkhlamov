@@ -229,7 +229,6 @@ function StoryCard({
               src={resolveMediaUrl(item.poster)}
               alt=""
               fill
-              unoptimized
               className="object-cover blur-2xl scale-125"
             />
           </div>
@@ -282,7 +281,6 @@ function StoryCard({
               src={resolveMediaUrl(item.poster)}
               alt={item.title}
               fill
-              unoptimized
               loading="lazy"
               fetchPriority="low"
               onLoad={handleImageLoad}
