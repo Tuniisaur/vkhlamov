@@ -64,90 +64,59 @@ function StoryCard({
 }) {
   const containerRef = useRef<HTMLAnchorElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isDesktopHover, setIsDesktopHover] = useState(false);
   const [isFramePlaying, setIsFramePlaying] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(!item.poster);
-  const [isVideoReady, setIsVideoReady] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isVertical, setIsVertical] = useState(false);
 
-  // Initialize video settings for mobile inline playback
+  // Detect desktop environment with hover pointer capability (screens >= 1024px)
   useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.defaultMuted = true;
-      video.muted = true;
-      video.playsInline = true;
-    }
-    // Safety fallback: ensure skeleton is dismissed if poster/video loading stalls
+    const checkDesktop = () => {
+      const isDesktop =
+        typeof window !== "undefined" &&
+        window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
+        window.innerWidth >= 1024;
+      setIsDesktopHover(isDesktop);
+    };
+    checkDesktop();
+    window.addEventListener("resize", checkDesktop);
+    return () => window.removeEventListener("resize", checkDesktop);
+  }, []);
+
+  // Safety fallback: ensure skeleton is dismissed if poster loading stalls
+  useEffect(() => {
     const timer = setTimeout(() => {
       setIsImageLoaded(true);
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Viewport intersection observer: autoplay video preview on smartphone when scrolled into view
+  // Desktop only: pause preview video if card scrolls out of view
   useEffect(() => {
+    if (!isDesktopHover) return;
     const container = containerRef.current;
     const video = videoRef.current;
     if (!container || !video) return;
 
-    const isTouch =
-      typeof window !== "undefined" &&
-      (window.matchMedia("(hover: none), (pointer: coarse)").matches ||
-        window.innerWidth < 1024);
-
-    if (!isTouch) {
-      // Desktop: mouse hover triggers playback; pause when scrolled out of view
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting && !video.paused) {
-              video.pause();
-              setIsFramePlaying(false);
-            }
-          });
-        },
-        { threshold: 0.1 }
-      );
-      observer.observe(container);
-      return () => observer.disconnect();
-    }
-
-    // Smartphone / Touch devices: automatically play preview when in view
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            video.preload = "auto";
-            video.muted = true;
-            video.defaultMuted = true;
-            video.playsInline = true;
-            const playPromise = video.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(() => {});
-            }
-          } else {
-            if (!video.paused) {
-              video.pause();
-            }
+          if (!entry.isIntersecting && !video.paused) {
+            video.pause();
             setIsFramePlaying(false);
           }
         });
       },
-      {
-        threshold: 0.25,
-        rootMargin: "0px 0px -5% 0px",
-      }
+      { threshold: 0.1 }
     );
-
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [isDesktopHover]);
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
+    if (!isDesktopHover) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -162,11 +131,7 @@ function StoryCard({
   };
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
-    const isTouch =
-      typeof window !== "undefined" &&
-      window.matchMedia("(hover: none), (pointer: coarse)").matches;
-    if (isTouch) return;
+    if (!isDesktopHover) return;
 
     setIsFramePlaying(false);
     setProgress(0);
@@ -209,7 +174,7 @@ function StoryCard({
     }
   };
 
-  const showSkeleton = !isImageLoaded && !isVideoReady && !isFramePlaying;
+  const showSkeleton = !isImageLoaded;
 
   return (
     <Link
@@ -241,39 +206,31 @@ function StoryCard({
           </div>
         )}
 
-        <video
-          ref={videoRef}
-          src={resolveMediaUrl(item.video)}
-          poster={resolveMediaUrl(item.poster)}
-          muted={isAudioMuted}
-          loop
-          playsInline
-          {...({ "webkit-playsinline": "true" } as any)}
-          preload="auto"
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onLoadedData={() => {
-            setIsVideoReady(true);
-            setIsImageLoaded(true);
-          }}
-          onCanPlay={() => {
-            setIsVideoReady(true);
-            setIsImageLoaded(true);
-          }}
-          onPlaying={() => {
-            setIsFramePlaying(true);
-            setIsVideoReady(true);
-            setIsImageLoaded(true);
-          }}
-          className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
-            isVertical ? "object-contain relative z-[1]" : "object-cover"
-          }`}
-        />
+        {/* Desktop video preview: strictly loaded and played on desktop hover */}
+        {isDesktopHover && item.video && (
+          <video
+            ref={videoRef}
+            src={resolveMediaUrl(item.video)}
+            poster={resolveMediaUrl(item.poster)}
+            muted={isAudioMuted}
+            loop
+            playsInline
+            preload="none"
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onPlaying={() => {
+              setIsFramePlaying(true);
+            }}
+            className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.02] pointer-events-none ${
+              isVertical ? "object-contain relative z-[1]" : "object-cover"
+            }`}
+          />
+        )}
 
-        {/* Poster Image: Stays visible until the video actually renders moving frames */}
+        {/* Poster Image: Always visible on mobile, fades out on desktop only when video frame is actively playing */}
         <div
           className={`absolute inset-0 transition-opacity duration-300 pointer-events-none z-[2] ${
-            isFramePlaying ? "opacity-0" : "opacity-100"
+            isFramePlaying && isDesktopHover ? "opacity-0" : "opacity-100"
           }`}
         >
           {item.poster && (
@@ -293,50 +250,54 @@ function StoryCard({
           )}
         </div>
 
-        {/* Progress Bar along bottom on hover */}
-        <div
-          style={{ width: `${progress}%` }}
-          className={`progress absolute bottom-0 left-0 h-[3px] bg-white transition-opacity duration-200 pointer-events-none ${
-            isFramePlaying ? "opacity-100" : "opacity-0"
-          }`}
-        />
+        {/* Progress Bar along bottom on hover (Desktop only) */}
+        {isDesktopHover && (
+          <div
+            style={{ width: `${progress}%` }}
+            className={`progress absolute bottom-0 left-0 h-[3px] bg-white transition-opacity duration-200 pointer-events-none z-[3] ${
+              isFramePlaying ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        )}
 
-        {/* Floating Audio Toggle Button (Appears on Hover) */}
-        <button
-          type="button"
-          onClick={handleAudioToggle}
-          aria-label={isAudioMuted ? "Unmute audio" : "Mute audio"}
-          className="absolute top-3 right-3 z-10 size-8 sm:size-9 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-center text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 cursor-pointer shadow-lg"
-        >
-          {isAudioMuted ? (
-            <svg
-              className="size-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <line x1="23" y1="9" x2="17" y2="15" />
-              <line x1="17" y1="9" x2="23" y2="15" />
-            </svg>
-          ) : (
-            <svg
-              className="size-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </svg>
-          )}
-        </button>
+        {/* Floating Audio Toggle Button (Desktop only on hover) */}
+        {isDesktopHover && (
+          <button
+            type="button"
+            onClick={handleAudioToggle}
+            aria-label={isAudioMuted ? "Unmute audio" : "Mute audio"}
+            className="hidden lg:flex absolute top-3 right-3 z-10 size-8 sm:size-9 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 items-center justify-center text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 cursor-pointer shadow-lg"
+          >
+            {isAudioMuted ? (
+              <svg
+                className="size-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            ) : (
+              <svg
+                className="size-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Story Metadata Directly Underneath: [01] Index on Left + Title & Subtitle on Right */}
