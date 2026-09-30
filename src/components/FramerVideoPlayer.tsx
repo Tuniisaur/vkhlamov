@@ -308,16 +308,14 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
     [flashSeek, flashEdge, showControls]
   );
 
-  // Initialize offscreen video for frame preview scrubbing
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // Lazy offscreen video for frame preview scrubbing (created on demand to save bandwidth)
+  const ensureScrubVideo = useCallback(() => {
+    if (typeof window === "undefined" || scrubVideoRef.current || !resolvedSrc) return;
     const scrub = document.createElement("video");
     scrub.muted = true;
-    scrub.preload = "auto";
+    scrub.preload = "metadata";
     scrub.playsInline = true;
-    scrub.crossOrigin = "anonymous";
     scrub.src = resolvedSrc;
-    scrub.load();
     scrubVideoRef.current = scrub;
 
     const offscreen = document.createElement("canvas");
@@ -339,23 +337,27 @@ const FramerVideoPlayer = React.forwardRef<HTMLVideoElement, FramerVideoPlayerPr
       }
     };
     scrub.addEventListener("seeked", onSeeked);
+  }, [resolvedSrc]);
 
+  useEffect(() => {
     return () => {
-      scrub.removeEventListener("seeked", onSeeked);
-      scrub.removeAttribute("src");
-      scrub.remove();
-      scrubVideoRef.current = null;
+      if (scrubVideoRef.current) {
+        scrubVideoRef.current.removeAttribute("src");
+        scrubVideoRef.current.remove();
+        scrubVideoRef.current = null;
+      }
     };
   }, [resolvedSrc]);
 
   // Scrub seek function
   const seekScrubTo = useCallback((t: number) => {
+    ensureScrubVideo();
     const scrub = scrubVideoRef.current;
     if (!scrub || !scrub.src || isNaN(scrub.duration)) return;
     if (Math.abs(t - lastScrubTimeRef.current) < 0.4) return;
     lastScrubTimeRef.current = t;
     scrub.currentTime = t;
-  }, []);
+  }, [ensureScrubVideo]);
 
   // Update progress bar and time display
   const updateProgressDisplay = useCallback((t: number, d: number) => {

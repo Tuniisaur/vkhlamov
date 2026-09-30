@@ -92,19 +92,46 @@ export async function GET(
     const localFile = path.resolve(process.cwd(), "public", "videos", filename);
     const stat = await fs.stat(localFile);
     if (stat.isFile()) {
-      const buffer = await fs.readFile(localFile);
       const ext = path.extname(filename).toLowerCase();
       const contentType =
         ext === ".webm" ? "video/webm" :
         ext === ".mov" ? "video/quicktime" :
         "video/mp4";
 
+      const rangeHeader = req.headers.get("range");
+      if (rangeHeader) {
+        const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = match[2] ? parseInt(match[2], 10) : stat.size - 1;
+          const chunkSize = end - start + 1;
+          const fileHandle = await fs.open(localFile, "r");
+          const buffer = Buffer.alloc(chunkSize);
+          await fileHandle.read(buffer, 0, chunkSize, start);
+          await fileHandle.close();
+
+          return new Response(buffer, {
+            status: 206,
+            headers: {
+              "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+              "Accept-Ranges": "bytes",
+              "Content-Length": chunkSize.toString(),
+              "Content-Type": contentType,
+              "Cache-Control": "public, max-age=31536000, immutable",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+      }
+
+      const buffer = await fs.readFile(localFile);
       return new Response(buffer, {
         status: 200,
         headers: {
           "Content-Type": contentType,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Content-Length": stat.size.toString(),
           "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=31536000, immutable",
           "Access-Control-Allow-Origin": "*",
         },
       });

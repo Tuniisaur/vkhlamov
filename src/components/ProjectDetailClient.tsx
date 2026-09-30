@@ -263,25 +263,39 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const projectStills = useMemo(() => project?.stills || [], [project?.stills]);
   const [loadedStills, setLoadedStills] = useState<Record<string, boolean>>({});
 
-  // Background prefetching: preload all stills into browser cache immediately
+  // Gentle prefetching for stills: only triggers when user scrolls near the stills section
   useEffect(() => {
     if (!projectStills.length || typeof window === "undefined") return;
+    const stillsEl = stillsRef.current;
+    if (!stillsEl) return;
 
-    const timer = setTimeout(() => {
-      projectStills.forEach((s) => {
-        if (!s.url) return;
-        const src = resolveMediaUrl(s.url);
-        if (src) {
-          const img = new window.Image();
-          img.onload = () => {
-            setLoadedStills((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
-          };
-          img.src = src;
+    let hasPrefetched = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && !hasPrefetched) {
+          hasPrefetched = true;
+          // Prefetch in small sequential intervals so video streaming is never starved
+          projectStills.slice(0, 12).forEach((s, idx) => {
+            if (!s.url) return;
+            const src = resolveMediaUrl(s.url);
+            if (src) {
+              setTimeout(() => {
+                const img = new window.Image();
+                img.onload = () => {
+                  setLoadedStills((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
+                };
+                img.src = src;
+              }, idx * 150);
+            }
+          });
+          observer.disconnect();
         }
-      });
-    }, 200);
+      },
+      { rootMargin: "200px" }
+    );
 
-    return () => clearTimeout(timer);
+    observer.observe(stillsEl);
+    return () => observer.disconnect();
   }, [projectStills]);
 
   // Priority prefetching for adjacent stills when lightbox is open
