@@ -1710,14 +1710,6 @@ export default function ManagePage() {
                         alt="About preview"
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                      <div className="absolute inset-x-0 bottom-0 p-3 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase text-white/70 z-10">
-                        <span className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                          VALERIY KHLAMOV
-                        </span>
-                        <span className="text-white/40">// DIR / DOP</span>
-                      </div>
                     </div>
                   </div>
 

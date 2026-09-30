@@ -41,7 +41,7 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/30 z-10 pointer-events-none" />
               <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/30 z-10 pointer-events-none" />
 
-              {/* Main Photo with smooth hover zoom & ambient film tone */}
+              {/* Main Photo with smooth hover zoom */}
               <Image
                 src={resolveMediaUrl(photoSrc)}
                 alt="Valeriy Khlamov - Director of Photography"
@@ -50,24 +50,6 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
                 className="object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.03]"
                 priority={false}
               />
-
-              {/* Ambient film grain & subtle bottom gradient vignette */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
-
-              {/* In-Frame Bottom Cinema Meta */}
-              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 flex items-center justify-between text-[10px] font-mono tracking-widest uppercase text-white/70 z-10 pointer-events-none">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  VALERIY KHLAMOV
-                </span>
-                <span className="text-white/40">// DIR / DOP</span>
-              </div>
-            </div>
-
-            {/* Subtle technical caption directly below photo */}
-            <div className="w-full max-w-[440px] mt-3 px-1 flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-white/30">
-              <span>[ MILAN // WORLDWIDE ]</span>
-              <span>HIGH-SPEED CINEMATOGRAPHY</span>
             </div>
           </div>
 
