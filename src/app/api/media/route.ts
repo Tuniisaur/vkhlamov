@@ -9,6 +9,7 @@ import {
   deleteR2Object,
   getR2PublicBase,
   uploadBufferToR2,
+  getR2StorageUsage,
 } from "@/utils/r2";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
@@ -109,7 +110,14 @@ export async function GET(req: Request) {
       console.warn("Could not read local images dir:", err);
     }
 
-    return NextResponse.json({ videos, images });
+    let storage = null;
+    try {
+      storage = await getR2StorageUsage();
+    } catch (sErr) {
+      console.warn("Could not retrieve storage metrics:", sErr);
+    }
+
+    return NextResponse.json({ videos, images, storage });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error listing media";
     return NextResponse.json({ error: msg }, { status: 500 });

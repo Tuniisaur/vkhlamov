@@ -14,6 +14,7 @@ import {
 import { LocalizedProject, ProjectStill, ProjectVideo } from "@/data/translations";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { captureVideoThumbnail } from "@/utils/videoThumbnail";
+import { R2StorageMonitor, R2StorageData } from "@/components/R2StorageMonitor";
 
 function AnimatedLoadingText({ label = "caricamento" }: { label?: string }) {
   return (
@@ -69,6 +70,8 @@ export default function ManagePage() {
     videos: { name: string; path: string; size: string; key?: string }[];
     images: { name: string; path: string; size: string; key?: string }[];
   }>({ videos: [], images: [] });
+  const [storageInfo, setStorageInfo] = useState<R2StorageData | null>(null);
+  const [isRefreshingStorage, setIsRefreshingStorage] = useState(false);
   const [isUploading, setIsUploading] = useState<string | null>(null);
 
   const fetchMedia = useCallback(async () => {
@@ -76,12 +79,32 @@ export default function ManagePage() {
       const res = await fetch("/api/media");
       if (res.ok) {
         const data = await res.json();
-        setMediaFiles(data);
+        setMediaFiles({ videos: data.videos || [], images: data.images || [] });
+        if (data.storage) {
+          setStorageInfo(data.storage);
+        }
       }
     } catch (err) {
       console.warn("Could not fetch media list:", err);
     }
   }, []);
+
+  const handleRefreshStorage = async () => {
+    setIsRefreshingStorage(true);
+    try {
+      const res = await fetch("/api/media/storage");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.storage) {
+          setStorageInfo(data.storage);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not refresh storage metrics:", err);
+    } finally {
+      setIsRefreshingStorage(false);
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -90,7 +113,10 @@ export default function ManagePage() {
         const res = await fetch("/api/media");
         if (res.ok && !ignore) {
           const data = await res.json();
-          setMediaFiles(data);
+          setMediaFiles({ videos: data.videos || [], images: data.images || [] });
+          if (data.storage) {
+            setStorageInfo(data.storage);
+          }
         }
       } catch (err) {
         console.warn("Could not fetch media list:", err);
@@ -101,6 +127,12 @@ export default function ManagePage() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "media") {
+      fetchMedia();
+    }
+  }, [activeTab, fetchMedia]);
 
   const handleUploadFile = async (
     file: File,
@@ -2103,6 +2135,13 @@ export default function ManagePage() {
                 </label>
               </div>
             </div>
+
+            {/* Cloudflare R2 Storage Monitor */}
+            <R2StorageMonitor
+              storageInfo={storageInfo}
+              isRefreshing={isRefreshingStorage}
+              onRefresh={handleRefreshStorage}
+            />
 
             {/* Video List */}
             <div className="space-y-4">
