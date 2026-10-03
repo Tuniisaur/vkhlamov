@@ -48,12 +48,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.png?v=2", type: "image/png" },
-      { url: "/favicon.ico?v=2", sizes: "any" },
-      { url: "/images/logo/favicon.png?v=2", type: "image/png" },
+      { url: "/vk-favicon.png?v=20261003", type: "image/png" },
+      { url: "/vk-favicon.ico?v=20261003", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
-    shortcut: "/favicon.png?v=2",
-    apple: "/favicon.png?v=2",
+    shortcut: "/vk-favicon.png?v=20261003",
+    apple: "/vk-favicon.png?v=20261003",
   },
   openGraph: {
     title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
