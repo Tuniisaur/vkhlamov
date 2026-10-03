@@ -33,7 +33,19 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
   description: "Official portfolio of Valerio Khlamov — Motorsport Director of Photography and Automotive Filmmaker. Based in Italy, available worldwide.",
-  keywords: ["Valerio Khlamov", "Motorsport Filmmaker", "F1 Videographer", "Rally WRC Video", "Trackside Cinematography", "Automotive Films"],
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      "max-video-preview": -1,
+      "max-image-preview": "none",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
     description: "High-octane racing visuals, high-speed track pursuit and luxury automotive films by Valerio Khlamov.",

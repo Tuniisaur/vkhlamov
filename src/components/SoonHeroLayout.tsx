@@ -8,7 +8,7 @@ import { resolveMediaUrl } from "@/utils/mediaUrl";
 import MeanderGallery from "@/components/MeanderGallery";
 import AboutSection from "@/components/AboutSection";
 import InstagramIcon from "@/components/InstagramIcon";
-import { Mail, ArrowUp } from "lucide-react";
+import { Mail, ArrowUp, ArrowUpRight } from "lucide-react";
 
 interface SoonHeroLayoutProps {
   onSelectProject: (project: LocalizedProject) => void;
@@ -296,9 +296,13 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
               {settings.contactEmail && (
                 <a
                   href={`mailto:${settings.contactEmail}`}
-                  className="block text-xl xs:text-2xl sm:text-4xl md:text-5xl font-light hover:italic transition-all duration-300 tracking-tight transform hover:translate-x-2 break-all sm:break-normal leading-snug"
+                  className="inline-flex items-center gap-2 sm:gap-3 text-xl xs:text-2xl sm:text-4xl md:text-5xl font-light hover:italic transition-all duration-300 tracking-tight transform hover:translate-x-2 break-all sm:break-normal leading-snug group"
                 >
-                  {settings.contactEmail} ↗
+                  <span>{settings.contactEmail}</span>
+                  <ArrowUpRight
+                    className="w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-white/70 group-hover:text-white transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 inline-block shrink-0"
+                    strokeWidth={1.5}
+                  />
                 </a>
               )}
               {Boolean(settings.contactPhone && settings.contactPhone.trim()) && (
@@ -336,9 +340,13 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
                       href={channel.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:italic hover:translate-x-1 transition-all duration-300 inline-block py-0.5 text-xs sm:text-sm"
+                      className="hover:italic hover:translate-x-1 transition-all duration-300 inline-flex items-center gap-1.5 py-0.5 text-xs sm:text-sm group"
                     >
-                      {channel.name} ↗
+                      <span>{channel.name}</span>
+                      <ArrowUpRight
+                        className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0"
+                        strokeWidth={1.75}
+                      />
                     </a>
                   ))}
                 </div>
@@ -366,7 +374,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
           <div className="text-center flex items-center justify-center flex-wrap gap-4 sm:gap-6">
             {(settings.footerLinks && settings.footerLinks.length > 0
               ? settings.footerLinks
-              : [{ id: "instagram", label: "Instagram ↗", url: "https://instagram.com/vkhlamov" }]
+              : [{ id: "instagram", label: "Instagram", url: "https://instagram.com/vkhlamov" }]
             ).map((link) => {
               const isInstagram =
                 link.id?.toLowerCase().includes("instagram") ||
@@ -472,7 +480,7 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         <div className="text-center flex items-center justify-center flex-wrap gap-4 sm:gap-6">
           {(settings.footerLinks && settings.footerLinks.length > 0
             ? settings.footerLinks
-            : [{ id: "instagram", label: "Instagram ↗", url: "https://instagram.com/vkhlamov" }]
+            : [{ id: "instagram", label: "Instagram", url: "https://instagram.com/vkhlamov" }]
           ).map((link) => {
             const isInstagram =
               link.id?.toLowerCase().includes("instagram") ||

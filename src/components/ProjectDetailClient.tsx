@@ -1242,7 +1242,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           <div className="text-center flex items-center justify-center flex-wrap gap-4 sm:gap-6">
             {(settings.footerLinks && settings.footerLinks.length > 0
               ? settings.footerLinks
-              : [{ id: "instagram", label: "Instagram ↗", url: "https://instagram.com/vkhlamov" }]
+              : [{ id: "instagram", label: "Instagram", url: "https://instagram.com/vkhlamov" }]
             ).map((link) => {
               const isInstagram =
                 link.id?.toLowerCase().includes("instagram") ||

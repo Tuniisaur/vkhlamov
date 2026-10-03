@@ -5,7 +5,7 @@ import Image from "next/image";
 import { AboutSettings, SiteSettings } from "@/context/SiteDataContext";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
 import InstagramIcon from "@/components/InstagramIcon";
-import { Mail, Phone, ExternalLink } from "lucide-react";
+import { Mail, Phone, ExternalLink, ArrowUpRight } from "lucide-react";
 
 interface AboutSectionProps {
   about: AboutSettings;
@@ -151,7 +151,8 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/40 text-white transition-all duration-300 hover:scale-105 active:scale-95 tracking-wider uppercase text-[11px]"
                   >
                     <Mail className="w-3.5 h-3.5 text-white/70" />
-                    <span>Inquire / Booking ↗</span>
+                    <span>Inquire / Booking</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-white/70" strokeWidth={1.75} />
                   </a>
                 )}
 
