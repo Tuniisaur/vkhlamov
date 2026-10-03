@@ -161,10 +161,18 @@ export default function LogoPreloader({
         }}
         className="relative z-10 flex flex-col items-center justify-center px-4 text-center"
       >
-        {/* VK Monogram Logo */}
-        <h1 className="font-title-custom uppercase text-white tracking-[0.16em] text-4xl sm:text-6xl md:text-7xl lg:text-8xl leading-none select-none">
-          VK
-        </h1>
+        {/* VK Monogram SVG Logo (logo.svg) */}
+        <svg
+          viewBox="447.9 339.94 1028.37 400.12"
+          className="h-9 sm:h-[60px] md:h-[72px] lg:h-[96px] w-auto select-none pointer-events-none drop-shadow-sm"
+          fill="#ffffff"
+          aria-hidden="true"
+        >
+          <g>
+            <path d="M621.32,339.94v186.45l229.34-186.45h246.19l-491.68,400.11h-157.27v-400.11h173.42Z" />
+            <polygon points="1476.27 339.94 1242.79 339.94 1009.8 529.55 1009.8 451.94 839.04 590.94 839.04 668.51 839.04 740.06 983.81 740.06 1009.8 719.01 1119.1 630.5 1207.48 740.06 1436.94 740.06 1246.85 526.4 1476.27 339.94" />
+          </g>
+        </svg>
       </div>
     </div>
   );

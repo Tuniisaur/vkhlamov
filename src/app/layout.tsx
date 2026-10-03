@@ -46,6 +46,14 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/images/logo/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
   openGraph: {
     title: "VALERIY KHLAMOV // Motorsport & Automotive Videographer",
     description: "High-octane racing visuals, high-speed track pursuit and luxury automotive films by Valerio Khlamov.",

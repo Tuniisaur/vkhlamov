@@ -24,6 +24,7 @@ export async function GET(
       const buffer = await fs.readFile(localFile);
       const ext = path.extname(filename).toLowerCase();
       const contentType =
+        ext === ".svg" ? "image/svg+xml" :
         ext === ".png" ? "image/png" :
         ext === ".webp" ? "image/webp" :
         ext === ".avif" ? "image/avif" :

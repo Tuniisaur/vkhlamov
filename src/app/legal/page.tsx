@@ -67,9 +67,9 @@ export default function LegalPage() {
                 </span>
                 <p className="text-white text-xs">
                   <strong>Valeriy Khlamov</strong><br />
-                  Director of Photography &amp; Filmmaker<br />
-                  Base: Milan, Italy<br />
-                  Direct Inquiries: <a href="mailto:valerio@vkhlamov.com" className="underline hover:text-white">valerio@vkhlamov.com</a>
+                  Videographer specialized in Motorsport &amp; Automotive<br />
+                  Base: Rome, Italy<br />
+                  Direct Inquiries: <a href="mailto:valerio.khlamov@gmail.com" className="underline hover:text-white">valerio.khlamov@gmail.com</a>
                 </p>
               </div>
 
@@ -99,7 +99,7 @@ export default function LegalPage() {
                 <strong>Data Retention:</strong> Correspondence received via email is retained only for as long as necessary to address inquiries or fulfill subsequent fiscal and professional obligations. Technical connection logs are purged or anonymized on regular cycles.
               </p>
               <p>
-                <strong>Data Subject Rights (Arts. 15–22 GDPR):</strong> Users retain the right at any time to request access, rectification, erasure (the right to be forgotten), restriction of processing, data portability, or to object to processing by submitting a notice to <a href="mailto:valerio@vkhlamov.com" className="text-white underline">valerio@vkhlamov.com</a>. Users also hold the statutory right to lodge a complaint with their designated European Data Protection Supervisory Authority (<a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer" className="text-white underline">garanteprivacy.it</a>).
+                <strong>Data Subject Rights (Arts. 15–22 GDPR):</strong> Users retain the right at any time to request access, rectification, erasure (the right to be forgotten), restriction of processing, data portability, or to object to processing by submitting a notice to <a href="mailto:valerio.khlamov@gmail.com" className="text-white underline">valerio.khlamov@gmail.com</a>. Users also hold the statutory right to lodge a complaint with their designated European Data Protection Supervisory Authority (<a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer" className="text-white underline">garanteprivacy.it</a>).
               </p>
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function LegalPage() {
                 {"//"} Image Rights &amp; Production Disclosures
               </span>
               <p className="text-white/60">
-                Audiovisual content was produced within commercial assignments, authorized trackside credentials, or official media accreditation. For any inquiries or clearance requests regarding image rights, please contact <a href="mailto:valerio@vkhlamov.com" className="text-white underline">valerio@vkhlamov.com</a> for prompt verification.
+                Audiovisual content was produced within commercial assignments, authorized trackside credentials, or official media accreditation. For any inquiries or clearance requests regarding image rights, please contact <a href="mailto:valerio.khlamov@gmail.com" className="text-white underline">valerio.khlamov@gmail.com</a> for prompt verification.
               </p>
             </div>
           </div>
@@ -208,11 +208,11 @@ export default function LegalPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-white/70">
             <div>
               <span className="text-white font-bold block">VALERIY KHLAMOV STUDIO</span>
-              <span>Milan, Italy • High-Speed Pursuit &amp; Automotive Cinematography</span>
+              <span>Rome, Italy • High-Speed Pursuit &amp; Automotive Cinematography</span>
               <span className="block text-white/50">P.IVA: 18341681007</span>
             </div>
             <div className="text-left sm:text-right space-y-1">
-              <div>Direct: <a href="mailto:valerio@vkhlamov.com" className="text-white underline">valerio@vkhlamov.com</a></div>
+              <div>Direct: <a href="mailto:valerio.khlamov@gmail.com" className="text-white underline">valerio.khlamov@gmail.com</a></div>
               <div className="text-[10px] text-white/40">Legal Revision: Year {currentYear}</div>
             </div>
           </div>

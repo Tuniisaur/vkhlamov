@@ -48,6 +48,8 @@ next-env.d.ts
 !/public/videos/.gitkeep
 /public/images/*
 !/public/images/.gitkeep
+!/public/images/logo/
+!/public/images/logo/**
 *.mp4
 *.mov
 *.webm
