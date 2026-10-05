@@ -48,12 +48,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.png?v=2", type: "image/png" },
-      { url: "/favicon.svg?v=2", type: "image/svg+xml" },
-      { url: "/favicon.ico?v=2", sizes: "any" },
+      { url: "/icon-v3.png", type: "image/png", sizes: "48x48" },
+      { url: "/icon-v3.png", type: "image/png", sizes: "32x32" },
     ],
+    shortcut: "/icon-v3.png",
     apple: [
-      { url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
   openGraph: {
