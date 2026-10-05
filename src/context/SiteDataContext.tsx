@@ -110,13 +110,18 @@ interface SiteDataContextType {
 
 export function isPlaceholderDescription(desc?: string): boolean {
   if (!desc) return true;
-  const lower = desc.trim().toLowerCase();
+  const trimmed = desc.trim();
+  if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
   return (
     lower === "film description" ||
     lower === "film description..." ||
     lower === "film description…" ||
     lower === "film description." ||
-    lower.startsWith("film description")
+    lower === "descrizione film" ||
+    lower === "descrizione film..." ||
+    lower === "descrizione del film" ||
+    lower === "descrizione del film..."
   );
 }
 

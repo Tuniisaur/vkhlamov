@@ -20,12 +20,10 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
   const about = settings.about || DEFAULT_ABOUT;
   const [activeTab, setActiveTab] = useState<"projects" | "about" | "contact" | null>(null);
   const currentVideo = settings.heroVideo || "/videos/sfondo%20portfolio.mov";
-  const [isMuted, setIsMuted] = useState(true);
   const [scrollY, setScrollY] = useState(0);
   const [windowHeight, setWindowHeight] = useState(900);
   const [isScrolledToProjects, setIsScrolledToProjects] = useState(false);
   const [isScrolledToAbout, setIsScrolledToAbout] = useState(false);
-  const [isSoundDismissedOnMobile, setIsSoundDismissedOnMobile] = useState(false);
   const [footerOffset, setFooterOffset] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const footerRef = useRef<HTMLElement>(null);
@@ -67,12 +65,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
       }
 
       checkFooterOffset();
-
-      if (inProjects || y > 80) {
-        setIsSoundDismissedOnMobile(true);
-      } else if (y <= 10) {
-        setIsSoundDismissedOnMobile(false);
-      }
     };
 
     const handleResize = () => {
@@ -110,22 +102,12 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
     }
   }, []);
 
-  const toggleSound = () => {
-    if (videoRef.current) {
-      const nextMuted = !isMuted;
-      videoRef.current.muted = nextMuted;
-      videoRef.current.volume = nextMuted ? 0 : 1;
-      setIsMuted(nextMuted);
-    }
-  };
-
   const scrollToTop = () => {
     setActiveTab(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const scrollToProjects = () => {
-    setIsSoundDismissedOnMobile(true);
     setActiveTab(null);
     const el = document.getElementById("projects");
     if (el) {
@@ -134,7 +116,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
   };
 
   const scrollToAbout = () => {
-    setIsSoundDismissedOnMobile(true);
     setActiveTab(null);
     const el = document.getElementById("about");
     if (el) {
@@ -174,26 +155,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
             : "hero-header-top pb-3 sm:pb-4 bg-transparent"
         }`}
       >
-        {/* Top Sound Toggle Positioned on the Right without taking vertical flow */}
-        <div
-          className={`absolute right-3 sm:right-8 transition-all duration-500 ease-out z-10 ${
-            isScrolledToProjects
-              ? "top-1/2 -translate-y-1/2"
-              : "top-2 sm:top-5"
-          } ${
-            isSoundDismissedOnMobile
-              ? "hidden sm:flex sm:items-center"
-              : "flex items-center"
-          }`}
-        >
-          <button
-            onClick={toggleSound}
-            aria-label={isMuted ? "Sound on" : "Sound off"}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[10px] sm:text-xs font-mono tracking-widest text-white/60 hover:text-white hover:italic transition-all duration-300 transform active:scale-95 sm:hover:scale-105 cursor-pointer"
-          >
-            {isMuted ? "[ sound on ]" : "[ sound off ]"}
-          </button>
-        </div>
 
         {/* VALERIY KHLAMOV Title - Monumental in Hero, Compact in Projects */}
         <h1

@@ -89,13 +89,18 @@ function getTitle(title: string | { en?: string; it?: string } | undefined): str
 
 function isPlaceholderDescription(desc?: string): boolean {
   if (!desc) return true;
-  const lower = desc.trim().toLowerCase();
+  const trimmed = desc.trim();
+  if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
   return (
     lower === "film description" ||
     lower === "film description..." ||
     lower === "film description…" ||
     lower === "film description." ||
-    lower.startsWith("film description")
+    lower === "descrizione film" ||
+    lower === "descrizione film..." ||
+    lower === "descrizione del film" ||
+    lower === "descrizione del film..."
   );
 }
 
@@ -105,8 +110,15 @@ function getDescription(description: string | { en?: string; it?: string } | und
   let text = "";
   if (typeof description === "string") {
     text = description.trim();
-  } else {
-    text = (description.it?.trim() || description.en?.trim() || "").trim();
+  } else if (typeof description === "object") {
+    text = (
+      description.it?.trim() ||
+      description.en?.trim() ||
+      (description as any).text?.trim() ||
+      (description as any).content?.trim() ||
+      (description as any).value?.trim() ||
+      ""
+    );
   }
   if (isPlaceholderDescription(text)) return "";
   return text;
@@ -158,22 +170,32 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       });
     }
     if (list.length === 0 && project && (project.fullVideoUrl || project.videoPreviewUrl)) {
-      list.push({
-        url: project.fullVideoUrl || project.videoPreviewUrl,
-        title: "Main Film",
-        duration: project.duration,
-        poster: project.posterImage,
-      });
+      const fallbackUrl = (project.fullVideoUrl || project.videoPreviewUrl || "").trim();
+      if (fallbackUrl) {
+        list.push({
+          url: fallbackUrl,
+          title: "Main Film",
+          duration: project.duration,
+          poster: project.posterImage,
+        });
+      }
     }
     return list;
   }, [project]);
 
-  const primaryVideo = allVideos[0];
-  const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
+  const hasVideos = allVideos.length > 0 && Boolean(allVideos[0]?.url);
+  const primaryVideo = hasVideos ? allVideos[0] : undefined;
+  const secondaryVideos = useMemo(() => (hasVideos ? allVideos.slice(1) : []), [allVideos, hasVideos]);
 
   const projectDescription = useMemo(() => {
     // 1. Direct project description
-    const desc = getDescription(project?.description);
+    const rawDesc =
+      project?.description ||
+      (project as any)?.desc ||
+      (project as any)?.synopsis ||
+      (project as any)?.bio ||
+      (project as any)?.details;
+    const desc = getDescription(rawDesc);
     if (desc) return desc;
 
     // 2. Fallback to video description if set on any video item
@@ -287,9 +309,15 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const [selectedStillIndex, setSelectedStillIndex] = useState<number | null>(null);
   const [isScrolledToStills, setIsScrolledToStills] = useState(false);
   const [bottomOffset, setBottomOffset] = useState(0);
-  const [isProjectMediaReady, setIsProjectMediaReady] = useState(false);
+  const [isProjectMediaReady, setIsProjectMediaReady] = useState(!hasVideos);
   const [isVertical, setIsVertical] = useState(false);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!hasVideos) {
+      setIsProjectMediaReady(true);
+    }
+  }, [hasVideos]);
 
   const projectStills = useMemo(() => project?.stills || [], [project?.stills]);
   const [loadedStills, setLoadedStills] = useState<Record<string, boolean>>({});
@@ -940,11 +968,11 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
       {/* ── 2. MAIN CONTENT: IN PRIMO PIANO IL VIDEO + SOTTO LE FOTO COLLEGATE ── */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-6 md:px-8 pt-3 sm:pt-6 pb-12 sm:pb-24 space-y-6 sm:space-y-12">
         {/* Prioritize Video: Browser Preload Hint */}
-        {primaryVideo && (
+        {hasVideos && primaryVideo?.url && (
           <link
             rel="preload"
             as="video"
-            href={resolveMediaUrl(primaryVideo.url || project.fullVideoUrl || project.videoPreviewUrl)}
+            href={resolveMediaUrl(primaryVideo.url)}
             type="video/mp4"
           />
         )}
@@ -988,7 +1016,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </div>
 
           {/* Primary video title (version label) — shown at the top of the video player when explicitly set */}
-          {primaryVideo?.title && primaryVideo.title !== "Main Film" && (
+          {hasVideos && primaryVideo?.title && primaryVideo.title !== "Main Film" && (
             <div className="w-full flex items-center justify-start gap-2 px-1">
               <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
               <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
@@ -997,44 +1025,70 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </div>
           )}
 
-          {/* Framer Video Player */}
-          <div className={`w-full flex justify-center transition-all duration-500 ${
-            isVertical ? "max-w-[380px] sm:max-w-[420px] mx-auto" : "w-full"
-          }`}>
-            <FramerVideoPlayer
-              key={primaryVideo?.url || "main-player-video"}
-              ref={videoRef}
-              src={primaryVideo?.url || project.fullVideoUrl || project.videoPreviewUrl}
-              poster={activeVideoPoster}
-              autoPlay={true}
-              muted={isMuted}
-              loop={true}
-              cornerRadius={14}
-              progressColor="#ffffff"
-              onReady={() => {
-                setIsProjectMediaReady(true);
-                checkViewportAutoplay();
-              }}
-              onPlayStateChange={(playing) => {
-                if (playing) {
-                  manuallyPausedIndexRef.current = null;
-                  handleMainPlay();
-                } else {
-                  handleMainPause();
-                }
-              }}
-              onMuteStateChange={(m) => setIsMuted(m)}
-              onFullscreenChange={(fs) => handleFullscreenChange(0, fs)}
-              onAspectRatioChange={(vert, ratio) => {
-                setIsVertical(vert);
-                setVideoAspectRatio(ratio);
-              }}
-            />
-          </div>
+          {/* Framer Video Player (only shown if project has videos) */}
+          {hasVideos && primaryVideo && (
+            <div className={`w-full flex justify-center transition-all duration-500 ${
+              isVertical ? "max-w-[380px] sm:max-w-[420px] mx-auto" : "w-full"
+            }`}>
+              <FramerVideoPlayer
+                key={primaryVideo.url || "main-player-video"}
+                ref={videoRef}
+                src={primaryVideo.url}
+                poster={activeVideoPoster}
+                autoPlay={true}
+                muted={isMuted}
+                loop={true}
+                cornerRadius={14}
+                progressColor="#ffffff"
+                onReady={() => {
+                  setIsProjectMediaReady(true);
+                  checkViewportAutoplay();
+                }}
+                onPlayStateChange={(playing) => {
+                  if (playing) {
+                    manuallyPausedIndexRef.current = null;
+                    handleMainPlay();
+                  } else {
+                    handleMainPause();
+                  }
+                }}
+                onMuteStateChange={(m) => setIsMuted(m)}
+                onFullscreenChange={(fs) => handleFullscreenChange(0, fs)}
+                onAspectRatioChange={(vert, ratio) => {
+                  setIsVertical(vert);
+                  setVideoAspectRatio(ratio);
+                }}
+              />
+            </div>
+          )}
+
+          {/* If NO videos exist, display keyframe / cover poster image if available */}
+          {!hasVideos && project.posterImage && (
+            <div className="w-full flex justify-center overflow-hidden rounded-xl border border-white/10 shadow-2xl bg-[#0c0c0e]">
+              <div className="relative w-full aspect-video max-h-[75vh]">
+                <Image
+                  src={resolveMediaUrl(project.posterImage)}
+                  alt={getTitle(project.title)}
+                  fill
+                  priority
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Description for projects WITHOUT videos - displayed prominently in Section 1 */}
+          {!hasVideos && projectDescription && (
+            <div className="pt-2 sm:pt-4 animate-cinema-fade w-full max-w-3xl">
+              <p className="text-sm sm:text-base md:text-lg text-white/85 font-light leading-relaxed tracking-wide whitespace-pre-line">
+                {projectDescription}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro senza scritte né titoli) ── */}
-        {secondaryVideos.length > 0 && (
+        {hasVideos && secondaryVideos.length > 0 && (
           <section className="space-y-6 sm:space-y-12 pt-6 sm:pt-10 border-t border-white/10 flex flex-col items-start w-full">
             {secondaryVideos.map((vid, sIdx) => (
               <SecondaryVideoBlock
@@ -1055,8 +1109,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           </section>
         )}
 
-        {/* ── PROJECT DESCRIPTION: POSIZIONATA TRA I VIDEO E I FRAME & STILLS ── */}
-        {projectDescription && (
+        {/* ── PROJECT DESCRIPTION: POSIZIONATA TRA I VIDEO E I FRAME & STILLS (Se ci sono video) ── */}
+        {hasVideos && projectDescription && (
           <section className="pt-6 sm:pt-8 border-t border-white/10 animate-cinema-fade flex justify-center w-full">
             <div className="max-w-3xl w-full mx-auto text-center px-4">
               <p className="text-sm sm:text-base md:text-lg text-white/75 font-light leading-relaxed tracking-wide whitespace-pre-line text-center">
