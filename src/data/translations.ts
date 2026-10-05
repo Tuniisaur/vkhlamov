@@ -42,7 +42,7 @@ export interface LocalizedProject {
     track: string;
     timecode: string;
   };
-  description: { en: string; it: string };
+  description?: { en: string; it: string } | string;
   featured: boolean;
   stills?: ProjectStill[];
 }

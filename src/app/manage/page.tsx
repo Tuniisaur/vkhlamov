@@ -478,6 +478,10 @@ export default function ManagePage() {
       }
     }
 
+    if (!cloned.description) {
+      cloned.description = { en: "", it: "" };
+    }
+
     setEditingProject(cloned);
     setIsCreatingNew(false);
   };
@@ -1150,6 +1154,19 @@ export default function ManagePage() {
                     <h3 className="text-lg sm:text-xl font-light tracking-tight text-white">
                       {proj.title.en || proj.title.it}
                     </h3>
+
+                    {(() => {
+                      const desc =
+                        typeof proj.description === "string"
+                          ? proj.description
+                          : proj.description?.it || proj.description?.en || "";
+                      if (!desc.trim()) return null;
+                      return (
+                        <p className="text-xs text-white/55 font-light line-clamp-2 leading-relaxed pt-1">
+                          {desc}
+                        </p>
+                      );
+                    })()}
 
                     <p className="text-xs font-mono text-white/30 pt-1">
                       stills collegate: {proj.stills?.length || 0}
@@ -2428,6 +2445,33 @@ export default function ManagePage() {
                     className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
                   />
                 </div>
+              </div>
+
+              {/* Descrizione Progetto */}
+              <div className="space-y-1">
+                <label className="text-white/40 block">
+                  descrizione progetto <span className="normal-case text-white/25">(opzionale — visualizzata tra i video e i frame & stills)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={
+                    typeof editingProject.description === "string"
+                      ? editingProject.description
+                      : editingProject.description?.it || editingProject.description?.en || ""
+                  }
+                  placeholder="Descrizione o note di regia del film (appare nella pagina del progetto tra i video e i frame & stills)..."
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditingProject({
+                      ...editingProject,
+                      description: {
+                        en: val,
+                        it: val,
+                      },
+                    });
+                  }}
+                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20 resize-none leading-relaxed"
+                />
               </div>
             </div>
 

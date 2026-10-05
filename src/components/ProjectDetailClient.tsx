@@ -92,6 +92,13 @@ function getTitle(title: string | { en?: string; it?: string } | undefined): str
   return title.en || title.it || "";
 }
 
+/** Resolve a description field that can be either a plain string or a localized { en, it } object */
+function getDescription(description: string | { en?: string; it?: string } | undefined): string {
+  if (!description) return "";
+  if (typeof description === "string") return description.trim();
+  return (description.it?.trim() || description.en?.trim() || "").trim();
+}
+
 export default function ProjectDetailClient({ projectId }: { projectId: string }) {
   const { projects, settings, isLoading } = useSiteData();
   const currentProjects = projects.length > 0 ? projects : LOCALIZED_PROJECTS;
@@ -150,6 +157,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
   const primaryVideo = allVideos[0];
   const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
+
+  const projectDescription = useMemo(() => {
+    return getDescription(project?.description);
+  }, [project?.description]);
 
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const currentActiveVideoRef = useRef<number | null>(null);
@@ -1022,6 +1033,17 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                 }}
               />
             ))}
+          </section>
+        )}
+
+        {/* ── PROJECT DESCRIPTION: POSIZIONATA TRA I VIDEO E I FRAME & STILLS ── */}
+        {projectDescription && (
+          <section className="pt-6 sm:pt-8 border-t border-white/10 animate-cinema-fade">
+            <div className="max-w-3xl">
+              <p className="text-sm sm:text-base md:text-lg text-white/75 font-light leading-relaxed tracking-wide whitespace-pre-line text-left">
+                {projectDescription}
+              </p>
+            </div>
           </section>
         )}
 
