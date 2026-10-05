@@ -108,6 +108,69 @@ interface SiteDataContextType {
   refreshData: () => Promise<void>;
 }
 
+export function isPlaceholderDescription(desc?: string): boolean {
+  if (!desc) return true;
+  const lower = desc.trim().toLowerCase();
+  return (
+    lower === "film description" ||
+    lower === "film description..." ||
+    lower === "film description…" ||
+    lower === "film description." ||
+    lower.startsWith("film description")
+  );
+}
+
+export function sanitizeProject(p: LocalizedProject): LocalizedProject {
+  const cloned: LocalizedProject = { ...p };
+
+  // Sanitize project description
+  if (typeof cloned.description === "string") {
+    if (isPlaceholderDescription(cloned.description)) {
+      cloned.description = { en: "", it: "" };
+    }
+  } else if (cloned.description && typeof cloned.description === "object") {
+    const enClean = isPlaceholderDescription(cloned.description.en) ? "" : (cloned.description.en || "");
+    const itClean = isPlaceholderDescription(cloned.description.it) ? "" : (cloned.description.it || "");
+    cloned.description = { en: enClean, it: itClean };
+  } else if (!cloned.description) {
+    cloned.description = { en: "", it: "" };
+  }
+
+  // If project description is empty, check if any video had a real user description
+  const hasDesc =
+    typeof cloned.description === "string"
+      ? cloned.description.trim().length > 0
+      : ((cloned.description?.it || cloned.description?.en || "").trim().length > 0);
+
+  if (!hasDesc && Array.isArray(cloned.videos)) {
+    for (const v of cloned.videos) {
+      if (v?.description && !isPlaceholderDescription(v.description)) {
+        cloned.description = { en: v.description.trim(), it: v.description.trim() };
+        break;
+      }
+    }
+  }
+
+  // Clean videos description placeholders
+  if (Array.isArray(cloned.videos)) {
+    cloned.videos = cloned.videos.map((v) => {
+      if (v?.description && isPlaceholderDescription(v.description)) {
+        const copy = { ...v };
+        delete copy.description;
+        return copy;
+      }
+      return v;
+    });
+  }
+
+  return cloned;
+}
+
+export function sanitizeProjects(list: LocalizedProject[]): LocalizedProject[] {
+  if (!Array.isArray(list)) return [];
+  return list.map(sanitizeProject);
+}
+
 const SiteDataContext = createContext<SiteDataContextType | undefined>(undefined);
 
 export function SiteDataProvider({ children }: { children: React.ReactNode }) {
@@ -134,7 +197,7 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.projects)) {
-          setProjects(data.projects);
+          setProjects(sanitizeProjects(data.projects));
         }
         if (data.settings) {
           setSettings((prev) => ({
@@ -164,7 +227,7 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed.projects)) {
-              setProjects(parsed.projects);
+              setProjects(sanitizeProjects(parsed.projects));
             }
             if (parsed.settings) {
               setSettings((prev) => ({
@@ -192,7 +255,7 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed.projects)) {
-              setProjects(parsed.projects);
+              setProjects(sanitizeProjects(parsed.projects));
             }
             if (parsed.settings) {
               setSettings((prev) => ({ ...prev, ...parsed.settings }));
@@ -229,11 +292,12 @@ export function SiteDataProvider({ children }: { children: React.ReactNode }) {
     setSaveStatus("saving");
 
     try {
-      setProjects(newProjects);
+      const cleanedProjects = sanitizeProjects(newProjects);
+      setProjects(cleanedProjects);
       setSettings(newSettings);
 
       const payload = {
-        projects: newProjects,
+        projects: cleanedProjects,
         settings: newSettings,
         lastUpdated: new Date().toISOString(),
       };

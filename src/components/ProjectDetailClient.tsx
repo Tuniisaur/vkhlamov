@@ -76,11 +76,6 @@ function SecondaryVideoBlock({
           onAspectRatioChange={(vert) => setIsVertical(vert)}
         />
       </div>
-      {vid.description && (
-        <p className="w-full text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
-          {vid.description}
-        </p>
-      )}
     </div>
   );
 }
@@ -92,11 +87,29 @@ function getTitle(title: string | { en?: string; it?: string } | undefined): str
   return title.en || title.it || "";
 }
 
+function isPlaceholderDescription(desc?: string): boolean {
+  if (!desc) return true;
+  const lower = desc.trim().toLowerCase();
+  return (
+    lower === "film description" ||
+    lower === "film description..." ||
+    lower === "film description…" ||
+    lower === "film description." ||
+    lower.startsWith("film description")
+  );
+}
+
 /** Resolve a description field that can be either a plain string or a localized { en, it } object */
 function getDescription(description: string | { en?: string; it?: string } | undefined): string {
   if (!description) return "";
-  if (typeof description === "string") return description.trim();
-  return (description.it?.trim() || description.en?.trim() || "").trim();
+  let text = "";
+  if (typeof description === "string") {
+    text = description.trim();
+  } else {
+    text = (description.it?.trim() || description.en?.trim() || "").trim();
+  }
+  if (isPlaceholderDescription(text)) return "";
+  return text;
 }
 
 export default function ProjectDetailClient({ projectId }: { projectId: string }) {
@@ -159,8 +172,21 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
   const secondaryVideos = useMemo(() => allVideos.slice(1), [allVideos]);
 
   const projectDescription = useMemo(() => {
-    return getDescription(project?.description);
-  }, [project?.description]);
+    // 1. Direct project description
+    const desc = getDescription(project?.description);
+    if (desc) return desc;
+
+    // 2. Fallback to video description if set on any video item
+    if (Array.isArray(project?.videos)) {
+      for (const v of project.videos) {
+        if (v && typeof v === "object" && v.description) {
+          const vDesc = getDescription(v.description);
+          if (vDesc) return vDesc;
+        }
+      }
+    }
+    return "";
+  }, [project]);
 
   const secondaryVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const currentActiveVideoRef = useRef<number | null>(null);
@@ -1005,13 +1031,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               }}
             />
           </div>
-
-          {/* Primary video description */}
-          {primaryVideo?.description && (
-            <p className="w-full text-sm sm:text-base text-white/55 font-light leading-relaxed tracking-wide text-left px-1">
-              {primaryVideo.description}
-            </p>
-          )}
         </section>
 
         {/* ── SECTION 2: VIDEO SECONDARI (Disposti uno sotto l'altro senza scritte né titoli) ── */}

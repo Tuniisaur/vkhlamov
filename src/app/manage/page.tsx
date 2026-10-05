@@ -42,6 +42,8 @@ import {
   AboutSettings,
   AboutInfoBlock,
   DEFAULT_ABOUT,
+  isPlaceholderDescription,
+  sanitizeProject,
 } from "@/context/SiteDataContext";
 import { LocalizedProject, ProjectStill, ProjectVideo } from "@/data/translations";
 import { resolveMediaUrl } from "@/utils/mediaUrl";
@@ -565,7 +567,7 @@ export default function ManagePage() {
     setNewStillUrl("");
     setNewVideoUrl("");
     setNewVideoTitle("");
-    const cloned: LocalizedProject = JSON.parse(JSON.stringify(project));
+    const cloned: LocalizedProject = sanitizeProject(JSON.parse(JSON.stringify(project)));
 
     // Normalize videos: if videos is missing or empty but fullVideoUrl exists, seed it
     if (!cloned.videos || cloned.videos.length === 0) {
@@ -630,7 +632,7 @@ export default function ManagePage() {
   const handleSaveProjectModal = async () => {
     if (!editingProject) return;
 
-    const projectToSave = { ...editingProject };
+    const projectToSave = sanitizeProject({ ...editingProject });
 
     // Synchronize videos and fullVideoUrl
     if (projectToSave.videos && projectToSave.videos.length > 0) {
@@ -1305,7 +1307,8 @@ export default function ManagePage() {
                   const isFirst = realIdx === 0;
                   const isLast = realIdx === projects.length - 1;
                   const vidCount = Array.isArray(proj.videos) && proj.videos.length > 0 ? proj.videos.length : (proj.fullVideoUrl ? 1 : 0);
-                  const desc = typeof proj.description === "string" ? proj.description : proj.description?.it || proj.description?.en || "";
+                  const rawDesc = typeof proj.description === "string" ? proj.description : proj.description?.it || proj.description?.en || "";
+                  const desc = isPlaceholderDescription(rawDesc) ? "" : rawDesc;
 
                   return (
                     <div
@@ -3218,22 +3221,6 @@ export default function ManagePage() {
                                     handleUpdateMainVideo(vIdx, { title: e.target.value })
                                   }
                                   className="w-full bg-transparent border-b border-white/15 py-1 text-sm text-white focus:outline-none focus:border-white transition-colors placeholder:text-white/20"
-                                />
-                              </div>
-
-                              {/* Video Description */}
-                              <div>
-                                <label className="text-[10px] text-white/40 uppercase tracking-widest block font-mono">
-                                  Descrizione video <span className="normal-case text-white/25">(opzionale — visualizzata sotto il player)</span>
-                                </label>
-                                <textarea
-                                  value={vid.description || ""}
-                                  placeholder="Descrivi questo video: tecnica di ripresa, emozioni, contesto narrativo…"
-                                  rows={2}
-                                  onChange={(e) =>
-                                    handleUpdateMainVideo(vIdx, { description: e.target.value })
-                                  }
-                                  className="w-full bg-transparent border-b border-white/15 py-1 text-sm text-white/80 focus:outline-none focus:border-white transition-colors placeholder:text-white/20 resize-none leading-relaxed"
                                 />
                               </div>
 
