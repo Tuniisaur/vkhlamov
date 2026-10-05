@@ -1057,9 +1057,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
         {/* ── PROJECT DESCRIPTION: POSIZIONATA TRA I VIDEO E I FRAME & STILLS ── */}
         {projectDescription && (
-          <section className="pt-6 sm:pt-8 border-t border-white/10 animate-cinema-fade">
-            <div className="max-w-3xl">
-              <p className="text-sm sm:text-base md:text-lg text-white/75 font-light leading-relaxed tracking-wide whitespace-pre-line text-left">
+          <section className="pt-6 sm:pt-8 border-t border-white/10 animate-cinema-fade flex justify-center w-full">
+            <div className="max-w-3xl w-full mx-auto text-center px-4">
+              <p className="text-sm sm:text-base md:text-lg text-white/75 font-light leading-relaxed tracking-wide whitespace-pre-line text-center">
                 {projectDescription}
               </p>
             </div>
