@@ -653,7 +653,7 @@ export default function ManagePage() {
     if (res.ok) {
       setEditingProject(null);
       showToast(
-        isCreatingNew ? "Nuovo film creato con successo!" : "Modifiche salvate con successo!",
+        isCreatingNew ? "Nuovo progetto creato con successo!" : "Modifiche salvate con successo!",
         "success"
       );
     } else {
@@ -1277,7 +1277,7 @@ export default function ManagePage() {
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#e0fe10] text-black font-mono text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Nuovo Film</span>
+                  <span>Nuovo Progetto</span>
                 </button>
               </div>
             </div>
@@ -1287,11 +1287,11 @@ export default function ManagePage() {
               {projects.length === 0 ? (
                 <div className="p-12 border border-dashed border-white/10 rounded-2xl text-center font-mono text-xs text-white/40 space-y-3">
                   <Film className="w-8 h-8 text-white/20 mx-auto" />
-                  <div>Nessun progetto presente. Clicca su &quot;Nuovo Film&quot; per iniziare.</div>
+                  <div>Nessun progetto presente. Clicca su &quot;Nuovo Progetto&quot; per iniziare.</div>
                 </div>
               ) : filteredProjects.length === 0 ? (
                 <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40 space-y-2">
-                  <div>Nessun film trovato per &quot;{projectSearch}&quot;</div>
+                  <div>Nessun progetto trovato per &quot;{projectSearch}&quot;</div>
                   <button
                     onClick={() => setProjectSearch("")}
                     className="text-[#e0fe10] hover:underline cursor-pointer"
@@ -2761,7 +2761,7 @@ export default function ManagePage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-white/40 tracking-widest uppercase">
-                    {isCreatingNew ? "[ new film ]" : `[ edit: ${editingProject.id} ]`}
+                    {isCreatingNew ? "[ nuovo progetto ]" : `[ edit: ${editingProject.id} ]`}
                   </span>
                   <h3 className="text-xl sm:text-2xl font-light text-white italic lowercase">
                     {editingProject.title.en || editingProject.title.it || "Senza Titolo"}
@@ -2775,7 +2775,7 @@ export default function ManagePage() {
                     className="px-4 py-1.5 rounded-lg bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-1.5 shadow"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>{isCreatingNew ? "Crea Film" : "Salva"}</span>
+                    <span>{isCreatingNew ? "Crea Progetto" : "Salva"}</span>
                   </button>
 
                   <button
