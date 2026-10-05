@@ -143,10 +143,10 @@ export default function ProjectModal({ project, onClose }: ProjectModalProps) {
             </div>
           )}
 
-          {/* Project Description */}
+          {/* Project Description (always centered) */}
           {modalDescription && (
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <p className="text-sm sm:text-base text-neutral-200 font-light leading-relaxed whitespace-pre-line">
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex justify-center w-full">
+              <p className="text-sm sm:text-base text-neutral-200 font-light leading-relaxed whitespace-pre-line text-center mx-auto max-w-2xl">
                 {modalDescription}
               </p>
             </div>

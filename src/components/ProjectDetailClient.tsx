@@ -1077,12 +1077,14 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
             </div>
           )}
 
-          {/* Description for projects WITHOUT videos - displayed prominently in Section 1 */}
+          {/* Description for projects WITHOUT videos - displayed prominently in Section 1 and always centered */}
           {!hasVideos && projectDescription && (
-            <div className="pt-2 sm:pt-4 animate-cinema-fade w-full max-w-3xl">
-              <p className="text-sm sm:text-base md:text-lg text-white/85 font-light leading-relaxed tracking-wide whitespace-pre-line">
-                {projectDescription}
-              </p>
+            <div className="pt-4 sm:pt-6 animate-cinema-fade w-full flex justify-center">
+              <div className="max-w-3xl w-full mx-auto text-center px-4">
+                <p className="text-sm sm:text-base md:text-lg text-white/85 font-light leading-relaxed tracking-wide whitespace-pre-line text-center">
+                  {projectDescription}
+                </p>
+              </div>
             </div>
           )}
         </section>
