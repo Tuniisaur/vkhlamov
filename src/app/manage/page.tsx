@@ -1,8 +1,40 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Film,
+  Play,
+  FileText,
+  Mail,
+  Layers,
+  Shield,
+  Search,
+  Plus,
+  Trash2,
+  ExternalLink,
+  Copy,
+  Check,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Upload,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Video,
+  Image as ImageIcon,
+  Save,
+  Sliders,
+  ChevronRight,
+  Info,
+  Clock,
+  Sparkle,
+} from "lucide-react";
 import {
   useSiteData,
   SocialChannel,
@@ -44,6 +76,41 @@ export default function ManagePage() {
     isSaving,
     saveStatus,
   } = useSiteData();
+
+  // Integrated Toast Notification State
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" | "info" = "success") => {
+      setToast({ message, type });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 3800);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Project search & filter
+  const [projectSearch, setProjectSearch] = useState("");
+
+  // Media search & type filter
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<"all" | "videos" | "images">("all");
+
+  // PIN visibility toggles
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+
+  // Modal active section navigation
+  const [modalSection, setModalSection] = useState<"general" | "videos" | "cover" | "stills">("general");
 
   // Authentication State (Server-backed & Cryptographic)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -206,12 +273,13 @@ export default function ManagePage() {
           });
           if (res.ok) {
             await fetchMedia();
+            showToast("File eliminato definitivamente", "info");
           } else {
             const data = await res.json();
-            alert(data.error || "Errore durante l'eliminazione");
+            showToast(data.error || "Errore durante l'eliminazione", "error");
           }
         } catch {
-          alert("Errore di rete durante l'eliminazione");
+          showToast("Errore di rete durante l'eliminazione", "error");
         }
       },
     });
@@ -220,6 +288,40 @@ export default function ManagePage() {
   // Dynamic media files list (direct from Cloudflare R2 / server)
   const activeVideos = mediaFiles.videos || [];
   const activeImages = mediaFiles.images || [];
+
+  // Filtered projects by search query
+  const filteredProjects = useMemo(() => {
+    if (!projectSearch.trim()) return projects;
+    const q = projectSearch.toLowerCase();
+    return projects.filter((p) => {
+      const title = (p.title?.en || p.title?.it || "").toLowerCase();
+      const year = (p.year || "").toLowerCase();
+      const loc = (p.location || "").toLowerCase();
+      const desc = (
+        typeof p.description === "string"
+          ? p.description
+          : p.description?.it || p.description?.en || ""
+      ).toLowerCase();
+      return title.includes(q) || year.includes(q) || loc.includes(q) || desc.includes(q);
+    });
+  }, [projects, projectSearch]);
+
+  // Filtered media by search and type filter
+  const filteredVideos = useMemo(() => {
+    if (!mediaSearch.trim()) return activeVideos;
+    const q = mediaSearch.toLowerCase();
+    return activeVideos.filter(
+      (v) => v.name.toLowerCase().includes(q) || v.path.toLowerCase().includes(q)
+    );
+  }, [activeVideos, mediaSearch]);
+
+  const filteredImages = useMemo(() => {
+    if (!mediaSearch.trim()) return activeImages;
+    const q = mediaSearch.toLowerCase();
+    return activeImages.filter(
+      (img) => img.name.toLowerCase().includes(q) || img.path.toLowerCase().includes(q)
+    );
+  }, [activeImages, mediaSearch]);
 
   // Project Editing Modal State
   const [editingProject, setEditingProject] = useState<LocalizedProject | null>(null);
@@ -454,6 +556,7 @@ export default function ManagePage() {
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedPath(text);
+    showToast("Percorso copiato negli appunti!", "info");
     setTimeout(() => setCopiedPath(null), 2500);
   };
 
@@ -549,8 +652,12 @@ export default function ManagePage() {
 
     if (res.ok) {
       setEditingProject(null);
+      showToast(
+        isCreatingNew ? "Nuovo film creato con successo!" : "Modifiche salvate con successo!",
+        "success"
+      );
     } else {
-      alert(`Impossibile salvare il progetto:\n${res.error || "Errore sconosciuto"}`);
+      showToast(`Impossibile salvare il progetto: ${res.error || "Errore sconosciuto"}`, "error");
     }
   };
 
@@ -688,7 +795,7 @@ export default function ManagePage() {
         handleUpdateMainVideo(vIdx, { posterImage: coverPath, poster: coverPath });
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Errore generazione copertina automatica");
+      showToast(err instanceof Error ? err.message : "Errore generazione copertina automatica", "error");
     } finally {
       setIsUploading(null);
     }
@@ -728,9 +835,12 @@ export default function ManagePage() {
           ...editingProject,
           videos: updated,
         });
+        showToast(`Generate ${generatedCount} copertine video con successo!`, "success");
+      } else {
+        showToast("Tutti i video hanno già una copertina.", "info");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Errore durante la generazione delle copertine");
+      showToast(err instanceof Error ? err.message : "Errore durante la generazione delle copertine", "error");
     } finally {
       setIsUploading(null);
     }
@@ -738,7 +848,12 @@ export default function ManagePage() {
 
   // Save Hero Video
   const handleSaveHeroVideo = async () => {
-    await updateSettings({ heroVideo: heroVideoUrl });
+    const res = await updateSettings({ heroVideo: heroVideoUrl });
+    if (res.ok) {
+      showToast("Video di sfondo home salvato con successo!", "success");
+    } else {
+      showToast(res.error || "Errore nel salvataggio del video home", "error");
+    }
   };
 
   const handleAddChannel = () => {
@@ -751,10 +866,12 @@ export default function ManagePage() {
     setChannels((prev) => [...prev, newChan]);
     setNewChannelName("");
     setNewChannelUrl("");
+    showToast(`Canale "${newChan.name}" aggiunto`, "info");
   };
 
   const handleRemoveChannel = (idToRemove: string) => {
     setChannels((prev) => prev.filter((c) => c.id !== idToRemove));
+    showToast("Canale rimosso", "info");
   };
 
   const handleUpdateChannel = (id: string, updated: Partial<SocialChannel>) => {
@@ -774,10 +891,12 @@ export default function ManagePage() {
     setFooterLinks((prev) => [...prev, newLink]);
     setNewFooterLabel("");
     setNewFooterUrl("");
+    showToast(`Link footer "${newLink.label}" aggiunto`, "info");
   };
 
   const handleRemoveFooterLink = (idToRemove: string) => {
     setFooterLinks((prev) => prev.filter((l) => l.id !== idToRemove));
+    showToast("Link footer rimosso", "info");
   };
 
   const handleUpdateFooterLink = (id: string, updated: Partial<FooterLink>) => {
@@ -788,7 +907,7 @@ export default function ManagePage() {
 
   // Save Contact & Footer Info
   const handleSaveContact = async () => {
-    await updateSettings({
+    const res = await updateSettings({
       ...contactForm,
       channels,
       footerLinks,
@@ -799,6 +918,11 @@ export default function ManagePage() {
         channels.find((c) => c.name.toLowerCase().includes("vimeo"))?.url ||
         contactForm.vimeoUrl,
     });
+    if (res.ok) {
+      showToast("Contatti e link footer salvati con successo!", "success");
+    } else {
+      showToast(res.error || "Errore nel salvataggio dei contatti", "error");
+    }
   };
 
   // Save About Info
@@ -808,13 +932,13 @@ export default function ManagePage() {
         about: aboutForm,
       });
       if (res.ok) {
-        alert("✓ Sezione About salvata con successo!\nLe modifiche sono ora applicate alla homepage.");
+        showToast("Sezione About salvata con successo!", "success");
       } else {
-        alert(`Errore nel salvataggio della sezione About:\n${res.error || "Impossibile salvare"}`);
+        showToast(`Errore: ${res.error || "Impossibile salvare"}`, "error");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Errore imprevisto nel salvataggio: ${msg}`);
+      showToast(`Errore imprevisto nel salvataggio: ${msg}`, "error");
     }
   };
 
@@ -831,6 +955,7 @@ export default function ManagePage() {
     }));
     setNewBlockLabel("");
     setNewBlockValue("");
+    showToast("Nuovo blocco informativo aggiunto", "info");
   };
 
   const handleRemoveCustomBlock = (id: string) => {
@@ -838,6 +963,7 @@ export default function ManagePage() {
       ...prev,
       customBlocks: (prev.customBlocks || []).filter((b) => b.id !== id),
     }));
+    showToast("Blocco rimosso", "info");
   };
 
   const handleUpdateCustomBlock = (id: string, updated: Partial<AboutInfoBlock>) => {
@@ -865,6 +991,7 @@ export default function ManagePage() {
     a.download = `valerio-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    showToast("File di backup scaricato con successo!", "success");
   };
 
   // Import JSON Backup
@@ -879,15 +1006,16 @@ export default function ManagePage() {
         if (Array.isArray(parsed.projects)) {
           const newSettings = parsed.settings || settings;
           await saveAll(parsed.projects, newSettings);
-          alert("Backup ripristinato con successo.");
+          showToast("Backup ripristinato con successo!", "success");
         } else {
-          alert("File JSON non valido.");
+          showToast("File JSON non valido: struttura progetti assente", "error");
         }
       } catch {
-        alert("Errore nella lettura del file JSON.");
+        showToast("Errore nella lettura del file JSON", "error");
       }
     };
     reader.readAsText(file);
+    e.target.value = "";
   };
 
   // ── 1. LOADING SCREEN MENTRE SI VERIFICA LA SESSIONE SICURA ──
@@ -987,98 +1115,124 @@ export default function ManagePage() {
   return (
     <div className="min-h-screen bg-[#050505] text-[#ececec] flex flex-col selection:bg-white selection:text-black safe-bottom">
       {/* ── TOP HEADER: ULTRA-MINIMAL ── */}
-      <header className="w-full border-b border-white/10 px-3 sm:px-8 py-3.5 sm:py-5 safe-top flex flex-wrap items-center justify-between gap-2 font-mono text-xs tracking-wider">
+      {/* ── TOP HEADER: ULTRA-MINIMAL & CRISP ── */}
+      <header className="w-full border-b border-white/10 px-3 sm:px-8 py-3 sm:py-4 safe-top flex flex-wrap items-center justify-between gap-3 font-mono text-xs tracking-wider bg-black/60 backdrop-blur-md">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <span className="text-white font-medium">[ VALERIY KHLAMOV ]</span>
-          <span className="text-white/40 hidden sm:inline">{"//"} STUDIO CMS</span>
-          <span className="text-white/30 text-[10px] sm:text-[11px]">
-            {saveStatus === "saving" ? "[ salvataggio... ]" : "[ online & synced ]"}
+          <Link href="/" target="_blank" className="text-white font-medium hover:text-[#e0fe10] transition-colors">
+            VALERIY KHLAMOV
+          </Link>
+          <span className="text-white/30 hidden sm:inline">{"//"}</span>
+          <span className="text-white/60 hidden sm:inline">STUDIO CONSOLE</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{saveStatus === "saving" ? "salvataggio..." : "online & sincronizzato"}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-5">
           <Link
             href="/"
             target="_blank"
-            className="text-white/60 hover:text-white hover:italic transition-colors min-h-[36px] flex items-center"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 transition-all text-xs"
           >
-            [ vedi sito ↗ ]
+            <span>Vedi Sito</span>
+            <ExternalLink className="w-3 h-3 text-white/50" />
           </Link>
           <button
             onClick={handleLogout}
-            className="text-white/40 hover:text-white hover:italic transition-colors cursor-pointer min-h-[36px] flex items-center"
+            className="text-white/40 hover:text-red-400 hover:italic transition-colors cursor-pointer text-xs"
           >
             [ esci ]
           </button>
         </div>
       </header>
 
-      {/* ── MINIMAL TABS ── */}
-      <nav className="w-full border-b border-white/10 px-3 sm:px-8 flex items-center gap-4 sm:gap-8 overflow-x-auto mobile-touch-scroll font-mono text-xs tracking-wider py-3">
+      {/* ── HIGH-END CINEMA TAB BAR ── */}
+      <nav className="w-full border-b border-white/10 px-3 sm:px-8 flex items-center gap-1.5 sm:gap-2 overflow-x-auto mobile-touch-scroll font-mono text-xs tracking-wider py-2.5 bg-black/40 backdrop-blur-sm sticky top-0 z-30">
         <button
           onClick={() => setActiveTab("projects")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "projects"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 01 {"//"} film & progetti ({projects.length}) ]
+          <Film className="w-3.5 h-3.5" />
+          <span>Film & Progetti</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              activeTab === "projects" ? "bg-black/20 text-black font-bold" : "bg-white/10 text-white/70"
+            }`}
+          >
+            {projects.length}
+          </span>
         </button>
 
         <button
           onClick={() => setActiveTab("hero")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "hero"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 02 {"//"} video home ]
+          <Play className="w-3.5 h-3.5" />
+          <span>Video Home</span>
         </button>
 
         <button
           onClick={() => setActiveTab("about")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "about"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 03 {"//"} bio & about ]
+          <FileText className="w-3.5 h-3.5" />
+          <span>Bio & About</span>
         </button>
 
         <button
           onClick={() => setActiveTab("contact")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "contact"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 04 {"//"} contatti ]
+          <Mail className="w-3.5 h-3.5" />
+          <span>Contatti & Footer</span>
         </button>
 
         <button
           onClick={() => setActiveTab("media")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "media"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 05 {"//"} libreria media ]
+          <Layers className="w-3.5 h-3.5" />
+          <span>Libreria Media</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              activeTab === "media" ? "bg-black/20 text-black font-bold" : "bg-white/10 text-white/70"
+            }`}
+          >
+            {activeVideos.length + activeImages.length}
+          </span>
         </button>
 
         <button
           onClick={() => setActiveTab("backup")}
-          className={`cursor-pointer transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg cursor-pointer transition-all whitespace-nowrap ${
             activeTab === "backup"
-              ? "text-white italic underline underline-offset-8"
-              : "text-white/40 hover:text-white"
+              ? "bg-white text-black font-semibold shadow-sm"
+              : "text-white/60 hover:text-white hover:bg-white/[0.06]"
           }`}
         >
-          [ 06 {"//"} backup & pin ]
+          <Shield className="w-3.5 h-3.5" />
+          <span>Backup & Sicurezza</span>
         </button>
       </nav>
 
@@ -1086,265 +1240,360 @@ export default function ManagePage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8 sm:py-12">
         {/* ── TAB 1: PROGETTI & FILM ── */}
         {activeTab === "projects" && (
-          <div className="space-y-8">
-            <div className="flex flex-wrap items-baseline justify-between gap-4 pb-4 border-b border-white/10">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-light text-white italic tracking-tight lowercase">
                   film & progetti
                 </h2>
                 <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
-                  gestisci l&apos;ordine, i video e le foto per ciascun progetto
+                  gestisci l&apos;ordine, i video, le descrizioni e le foto per ciascun progetto
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={projectSearch}
+                    onChange={(e) => setProjectSearch(e.target.value)}
+                    placeholder="cerca per titolo, anno, luogo..."
+                    className="bg-white/[0.04] border border-white/15 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20 transition-all font-mono w-48 sm:w-64"
+                  />
+                  {projectSearch && (
+                    <button
+                      onClick={() => setProjectSearch("")}
+                      className="text-white/40 hover:text-white absolute right-2.5 top-1/2 -translate-y-1/2 text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
                 <button
                   onClick={handleOpenCreateNew}
-                  className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-[#e0fe10] text-black font-mono text-xs font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  [ + nuovo progetto ]
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuovo Film</span>
                 </button>
               </div>
             </div>
 
             {/* Editorial Projects List */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {projects.length === 0 ? (
-                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
-                  Nessun progetto presente. Clicca su &quot;[ + nuovo progetto ]&quot; in alto per iniziare.
+                <div className="p-12 border border-dashed border-white/10 rounded-2xl text-center font-mono text-xs text-white/40 space-y-3">
+                  <Film className="w-8 h-8 text-white/20 mx-auto" />
+                  <div>Nessun progetto presente. Clicca su &quot;Nuovo Film&quot; per iniziare.</div>
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40 space-y-2">
+                  <div>Nessun film trovato per &quot;{projectSearch}&quot;</div>
+                  <button
+                    onClick={() => setProjectSearch("")}
+                    className="text-[#e0fe10] hover:underline cursor-pointer"
+                  >
+                    [ Reimposta ricerca ]
+                  </button>
                 </div>
               ) : (
-                projects.map((proj, idx) => (
-                <div
-                  key={proj.id}
-                  className="group border-b border-white/10 pb-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
-                >
-                  {/* Visual preview */}
-                  <div className="md:col-span-3">
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60 border border-white/5">
-                      {proj.posterImage || proj.stills?.[0]?.url ? (
-                        <Image
-                          src={resolveMediaUrl(proj.posterImage || proj.stills?.[0]?.url || "")}
-                          alt={proj.title.en || proj.title.it || "Project"}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-white/20 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
-                          <span>[ nessuna cover ]</span>
+                filteredProjects.map((proj) => {
+                  const realIdx = projects.findIndex((p) => p.id === proj.id);
+                  const isFirst = realIdx === 0;
+                  const isLast = realIdx === projects.length - 1;
+                  const vidCount = Array.isArray(proj.videos) && proj.videos.length > 0 ? proj.videos.length : (proj.fullVideoUrl ? 1 : 0);
+                  const desc = typeof proj.description === "string" ? proj.description : proj.description?.it || proj.description?.en || "";
+
+                  return (
+                    <div
+                      key={proj.id}
+                      className="group border border-white/10 hover:border-white/25 bg-white/[0.015] hover:bg-white/[0.03] p-4 sm:p-5 rounded-2xl transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-5 items-center"
+                    >
+                      {/* Visual preview thumbnail */}
+                      <div className="md:col-span-3">
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60 border border-white/10 group-hover:border-white/20 transition-all">
+                          {proj.posterImage || proj.stills?.[0]?.url ? (
+                            <Image
+                              src={resolveMediaUrl(proj.posterImage || proj.stills?.[0]?.url || "")}
+                              alt={proj.title.en || proj.title.it || "Project"}
+                              fill
+                              unoptimized
+                              className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-white/20 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
+                              <span>[ nessuna cover ]</span>
+                            </div>
+                          )}
+
+                          {/* Index badge */}
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-white/15 font-mono text-[10px] text-white/90">
+                            #{String(realIdx + 1).padStart(2, "0")}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Details */}
-                  <div className="md:col-span-6 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono text-white/40">
-                      <span>[{String(idx + 1).padStart(2, "0")}]</span>
-                      <span>{proj.year}</span>
-                      {proj.location && (
-                        <>
+                      {/* Details */}
+                      <div className="md:col-span-6 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-white/40">
+                          <span className="text-white/80 font-semibold">{proj.year}</span>
+                          {proj.location && (
+                            <>
+                              <span>•</span>
+                              <span className="text-white/60">{proj.location}</span>
+                            </>
+                          )}
                           <span>•</span>
-                          <span className="text-white/60">{proj.location}</span>
-                        </>
-                      )}
+                          <span className="px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-white/70 text-[10px]">
+                            {vidCount} {vidCount === 1 ? "video" : "video"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-white/70 text-[10px]">
+                            {proj.stills?.length || 0} stills
+                          </span>
+                        </div>
+
+                        <h3 className="text-lg sm:text-xl font-light tracking-tight text-white group-hover:text-white transition-colors">
+                          {proj.title.en || proj.title.it || "Film senza titolo"}
+                        </h3>
+
+                        {desc.trim() && (
+                          <p className="text-xs text-white/55 font-light line-clamp-2 leading-relaxed">
+                            {desc}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="md:col-span-3 flex flex-wrap md:flex-col items-start md:items-end justify-between md:justify-center gap-2 font-mono text-xs">
+                        {/* Reorder Arrows */}
+                        <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/10 p-1 rounded-lg">
+                          <button
+                            onClick={() => reorderProjects(realIdx, realIdx - 1)}
+                            disabled={isFirst}
+                            className="p-1 rounded hover:bg-white/20 text-white/60 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                            title="Sposta in alto"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[10px] text-white/30 px-1">pos</span>
+                          <button
+                            onClick={() => reorderProjects(realIdx, realIdx + 1)}
+                            disabled={isLast}
+                            className="p-1 rounded hover:bg-white/20 text-white/60 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                            title="Sposta in basso"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(proj)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white text-white hover:text-black transition-all cursor-pointer font-medium"
+                          >
+                            <span>Modifica</span>
+                          </button>
+
+                          <Link
+                            href={`/project/${proj.id}`}
+                            target="_blank"
+                            className="p-2 rounded-lg border border-white/10 hover:border-white/30 text-white/60 hover:text-white transition-all cursor-pointer"
+                            title="Apri anteprima film in nuova scheda"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+
+                          <button
+                            onClick={() => {
+                              const title = proj.title.en || proj.title.it || "Senza titolo";
+                              setConfirmDialog({
+                                title: "Elimina Progetto",
+                                message: `Sei sicuro di voler eliminare definitivamente il progetto "${title}"? Questa operazione non può essere annullata.`,
+                                confirmLabel: "[ elimina definitivamente ]",
+                                onConfirm: async () => {
+                                  const res = await deleteProject(proj.id);
+                                  if (!res.ok) {
+                                    showToast(
+                                      `Impossibile eliminare il progetto: ${res.error || "Errore sconosciuto"}`,
+                                      "error"
+                                    );
+                                  } else {
+                                    showToast("Progetto eliminato definitivamente", "info");
+                                  }
+                                },
+                              });
+                            }}
+                            className="p-2 rounded-lg border border-red-500/20 hover:border-red-500/50 text-red-400/80 hover:text-red-300 hover:bg-red-500/10 transition-all cursor-pointer"
+                            title="Elimina progetto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-
-                    <h3 className="text-lg sm:text-xl font-light tracking-tight text-white">
-                      {proj.title.en || proj.title.it}
-                    </h3>
-
-                    {(() => {
-                      const desc =
-                        typeof proj.description === "string"
-                          ? proj.description
-                          : proj.description?.it || proj.description?.en || "";
-                      if (!desc.trim()) return null;
-                      return (
-                        <p className="text-xs text-white/55 font-light line-clamp-2 leading-relaxed pt-1">
-                          {desc}
-                        </p>
-                      );
-                    })()}
-
-                    <p className="text-xs font-mono text-white/30 pt-1">
-                      stills collegate: {proj.stills?.length || 0}
-                    </p>
-                  </div>
-
-                  {/* Minimal Text Actions */}
-                  <div className="md:col-span-3 flex flex-wrap md:flex-col items-start md:items-end gap-2 font-mono text-xs text-white/60">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => reorderProjects(idx, idx - 1)}
-                        disabled={idx === 0}
-                        className="hover:text-white hover:italic disabled:opacity-20 cursor-pointer"
-                        title="Sposta in alto"
-                      >
-                        [ ↑ ]
-                      </button>
-                      <button
-                        onClick={() => reorderProjects(idx, idx + 1)}
-                        disabled={idx === projects.length - 1}
-                        className="hover:text-white hover:italic disabled:opacity-20 cursor-pointer"
-                        title="Sposta in basso"
-                      >
-                        [ ↓ ]
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => handleOpenEdit(proj)}
-                      className="hover:text-white hover:italic transition-colors cursor-pointer"
-                    >
-                      [ modifica ]
-                    </button>
-
-                    <Link
-                      href={`/project/${proj.id}`}
-                      target="_blank"
-                      className="hover:text-white hover:italic transition-colors"
-                    >
-                      [ anteprima ↗ ]
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        const title = proj.title.en || proj.title.it || "Senza titolo";
-                        setConfirmDialog({
-                          title: "Elimina Progetto",
-                          message: `Sei sicuro di voler eliminare definitivamente il progetto "${title}"? Questa operazione non può essere annullata.`,
-                          confirmLabel: "[ elimina definitivamente ]",
-                          onConfirm: async () => {
-                            const res = await deleteProject(proj.id);
-                            if (!res.ok) {
-                              alert(
-                                `Impossibile eliminare il progetto:\n${res.error || "Errore sconosciuto"}`
-                              );
-                            }
-                          },
-                        });
-                      }}
-                      className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer"
-                    >
-                      [ elimina ]
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
         {/* ── TAB 2: VIDEO HOME ── */}
         {activeTab === "hero" && (
           <div className="space-y-8 max-w-4xl">
-            <div className="pb-4 border-b border-white/10">
-              <h2 className="text-2xl sm:text-3xl font-light text-white italic tracking-tight lowercase">
-                video di sfondo home
-              </h2>
-              <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
-                video riprodotto a tutto schermo all&apos;apertura del sito
-              </p>
+            <div className="pb-4 border-b border-white/10 flex flex-wrap items-baseline justify-between gap-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-light text-white italic tracking-tight lowercase">
+                  video di sfondo home
+                </h2>
+                <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
+                  video riprodotto a tutto schermo all&apos;apertura del portfolio
+                </p>
+              </div>
+              <button
+                onClick={handleSaveHeroVideo}
+                className="px-4 py-2 rounded-xl bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-2 shadow-lg"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Salva Impostazione</span>
+              </button>
             </div>
 
             <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-mono uppercase text-white/50 tracking-wider block">
-                  percorso o url del video
-                </label>
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              {/* Main Video Input & Upload Card */}
+              <div className="p-6 rounded-2xl bg-[#0a0a0c] border border-white/10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <label className="text-xs font-mono uppercase text-white/60 tracking-wider flex items-center gap-2">
+                    <Video className="w-4 h-4 text-[#e0fe10]" />
+                    <span>percorso o url del video di sfondo</span>
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-mono transition-colors cursor-pointer shrink-0">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploading === "hero" ? <AnimatedLoadingText label="caricamento" /> : "Carica video dal PC"}</span>
+                    <input
+                      type="file"
+                      accept="video/*,.mp4,.webm,.mov"
+                      disabled={isUploading === "hero"}
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          setIsUploading("hero");
+                          try {
+                            const path = await handleUploadFile(f, "video");
+                            if (path) {
+                              setHeroVideoUrl(path);
+                              await updateSettings({ heroVideo: path });
+                              showToast("Video caricato e impostato come sfondo!", "success");
+                            }
+                          } catch (err) {
+                            showToast("Errore caricamento: " + (err instanceof Error ? err.message : ""), "error");
+                          } finally {
+                            setIsUploading(null);
+                            e.target.value = "";
+                          }
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div className="relative">
                   <input
                     type="text"
                     value={heroVideoUrl}
                     onChange={(e) => setHeroVideoUrl(e.target.value)}
-                    className="flex-1 w-full bg-transparent border-b border-white/20 py-2 text-xs font-mono text-white focus:outline-none focus:border-white transition-colors"
+                    placeholder="https://... o /videos/hero.mp4"
+                    className="w-full bg-black/60 border border-white/15 rounded-xl px-4 py-3 text-xs font-mono text-white focus:outline-none focus:border-[#e0fe10] transition-colors"
                   />
-                  <div className="flex items-center gap-4">
-                    <label className="text-xs font-mono text-white/80 hover:text-white hover:italic transition-colors cursor-pointer whitespace-nowrap">
-                      <span>{isUploading === "hero" ? <AnimatedLoadingText label="caricamento" /> : "[ + carica video dal pc ]"}</span>
-                      <input
-                        type="file"
-                        accept="video/*,.mp4,.webm,.mov"
-                        disabled={isUploading === "hero"}
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0];
-                          if (f) {
-                            setIsUploading("hero");
-                            try {
-                              const path = await handleUploadFile(f, "video");
-                              if (path) {
-                                setHeroVideoUrl(path);
-                                await updateSettings({ heroVideo: path });
-                              }
-                            } catch (err) {
-                              alert("Errore caricamento: " + (err instanceof Error ? err.message : ""));
-                            } finally {
-                              setIsUploading(null);
-                              e.target.value = "";
-                            }
-                          }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
+                  {heroVideoUrl && (
                     <button
-                      onClick={handleSaveHeroVideo}
-                      className="text-xs font-mono text-white hover:italic transition-colors cursor-pointer whitespace-nowrap font-bold"
+                      type="button"
+                      onClick={() => handleCopy(heroVideoUrl)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer text-xs font-mono flex items-center gap-1"
                     >
-                      [ salva video ]
+                      <Copy className="w-3 h-3" />
+                      <span>copia</span>
                     </button>
-                  </div>
+                  )}
                 </div>
               </div>
 
               {/* Live Preview */}
-              <div className="space-y-2 pt-4">
-                <span className="text-[11px] font-mono text-white/30 tracking-wider uppercase block">
-                  anteprima in tempo reale
+              <div className="space-y-3">
+                <span className="text-xs font-mono text-white/40 tracking-wider uppercase flex items-center gap-2">
+                  <Play className="w-3.5 h-3.5 text-[#e0fe10]" />
+                  <span>anteprima streaming in tempo reale</span>
                 </span>
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                  <video
-                    src={heroVideoUrl}
-                    controls
-                    autoPlay
-                    muted
-                    loop
-                    className="w-full h-full object-cover"
-                  />
+                <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-white/15 shadow-2xl">
+                  {heroVideoUrl ? (
+                    <video
+                      key={heroVideoUrl}
+                      src={heroVideoUrl}
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center font-mono text-xs text-white/40 gap-2">
+                      <Video className="w-8 h-8 opacity-30" />
+                      <span>Nessun video attualmente impostato</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Quick Select */}
-              <div className="space-y-3 pt-6 border-t border-white/10 font-mono text-xs">
-                <span className="text-white/40 block">
-                  oppure seleziona tra i video del server:
-                </span>
+              {/* Quick Select from Server Videos */}
+              <div className="space-y-4 pt-6 border-t border-white/10 font-mono text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60 flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-white/40" />
+                    <span>Oppure seleziona rapidamente dai video del server ({activeVideos.length}):</span>
+                  </span>
+                </div>
+
                 {activeVideos.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {activeVideos.map((vid) => (
-                      <button
-                        key={vid.path}
-                        onClick={() => setHeroVideoUrl(vid.path)}
-                        className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
-                          heroVideoUrl === vid.path
-                            ? "border-white text-white italic"
-                            : "border-white/10 text-white/50 hover:text-white hover:border-white/30"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs">{vid.name}</span>
-                          {vid.size && <span className="text-[10px] text-white/30">{vid.size}</span>}
-                        </div>
-                        <div className="text-[10px] text-white/30 pt-0.5 truncate">{vid.path}</div>
-                      </button>
-                    ))}
+                    {activeVideos.map((vid) => {
+                      const isSelected = heroVideoUrl === vid.path;
+                      return (
+                        <button
+                          key={vid.path}
+                          onClick={() => {
+                            setHeroVideoUrl(vid.path);
+                            showToast(`Selezionato: ${vid.name}`, "info");
+                          }}
+                          className={`text-left p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 group ${
+                            isSelected
+                              ? "bg-[#e0fe10]/10 border-[#e0fe10] text-white shadow-[0_0_15px_rgba(224,254,16,0.15)]"
+                              : "bg-[#09090b] border-white/10 text-white/60 hover:text-white hover:border-white/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-light text-white text-xs truncate group-hover:italic">{vid.name}</span>
+                            {isSelected ? (
+                              <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#e0fe10] text-black text-[10px] font-bold flex items-center gap-1">
+                                <Check className="w-3 h-3" /> Attivo
+                              </span>
+                            ) : (
+                              vid.size && <span className="text-[10px] text-white/30">{vid.size}</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-white/30 truncate">{vid.path}</div>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="p-4 border border-dashed border-white/10 rounded-lg text-white/30 text-[11px]">
-                    Nessun video caricato. Carica un video nella scheda &quot;File&quot; o inserisci l&apos;URL sopra.
+                  <div className="p-6 border border-dashed border-white/10 rounded-xl text-center text-white/40 text-xs">
+                    Nessun video presente sul server. Caricane uno usando il pulsante sopra o dalla libreria file.
                   </div>
                 )}
               </div>
@@ -1367,9 +1616,10 @@ export default function ManagePage() {
               <button
                 onClick={handleSaveAbout}
                 disabled={isSaving}
-                className="text-xs font-mono text-white hover:italic transition-colors cursor-pointer font-bold disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-50"
               >
-                {isSaving ? "[ salvataggio... ]" : "[ salva sezione about ]"}
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSaving ? "Salvataggio..." : "Salva Sezione About"}</span>
               </button>
             </div>
 
@@ -1415,9 +1665,10 @@ export default function ManagePage() {
                               const path = await handleUploadFile(f, "image");
                               if (path) {
                                 setAboutForm((prev) => ({ ...prev, image: path }));
+                                showToast("Foto profilo caricata!", "success");
                               }
                             } catch (err: any) {
-                              alert(`Errore caricamento immagine: ${err.message}`);
+                              showToast(`Errore caricamento immagine: ${err.message}`, "error");
                             } finally {
                               setIsUploading(null);
                             }
@@ -1840,78 +2091,95 @@ export default function ManagePage() {
         {/* ── TAB 4: CONTATTI ── */}
         {activeTab === "contact" && (
           <div className="space-y-8 max-w-3xl">
-            <div className="pb-4 border-b border-white/10">
-              <h2 className="text-2xl sm:text-3xl font-light text-white italic tracking-tight lowercase">
-                contatti & canali
-              </h2>
-              <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
-                informazioni mostrate nell&apos;overlay contatti e nel footer del sito
-              </p>
+            <div className="pb-4 border-b border-white/10 flex flex-wrap items-baseline justify-between gap-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-light text-white italic tracking-tight lowercase">
+                  contatti & canali
+                </h2>
+                <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
+                  informazioni mostrate nell&apos;overlay contatti e nel footer del sito
+                </p>
+              </div>
+              <button
+                onClick={handleSaveContact}
+                className="px-4 py-2 rounded-xl bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-2 shadow-lg"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Salva Contatti</span>
+              </button>
             </div>
 
-            <div className="space-y-6 font-mono text-xs">
-              <div className="space-y-2">
-                <label className="text-white/50 uppercase tracking-wider block">
-                  email di contatto
-                </label>
-                <input
-                  type="email"
-                  value={contactForm.contactEmail}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, contactEmail: e.target.value })
-                  }
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
+            <div className="space-y-8 font-mono text-xs">
+              {/* Direct Info Card */}
+              <div className="p-6 rounded-2xl bg-[#0a0a0c] border border-white/10 space-y-4">
+                <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
+                  {"//"} contatti diretti & fiscali
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-white/50 uppercase tracking-wider block text-[10px]">
+                      email di contatto
+                    </label>
+                    <input
+                      type="email"
+                      value={contactForm.contactEmail}
+                      onChange={(e) =>
+                        setContactForm({ ...contactForm, contactEmail: e.target.value })
+                      }
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-white/50 uppercase tracking-wider block">
-                  telefono / whatsapp hotline
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.contactPhone}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, contactPhone: e.target.value })
-                  }
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-white/50 uppercase tracking-wider block text-[10px]">
+                      telefono / whatsapp hotline
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.contactPhone}
+                      onChange={(e) =>
+                        setContactForm({ ...contactForm, contactPhone: e.target.value })
+                      }
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-white/50 uppercase tracking-wider block">
-                  rappresentanza & sede
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.representation}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, representation: e.target.value })
-                  }
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-white/50 uppercase tracking-wider block text-[10px]">
+                      rappresentanza & sede
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.representation}
+                      onChange={(e) =>
+                        setContactForm({ ...contactForm, representation: e.target.value })
+                      }
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-white/50 uppercase tracking-wider block">
-                  partita iva (p.iva)
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.vatNumber}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, vatNumber: e.target.value })
-                  }
-                  placeholder="18341681007"
-                  className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors"
-                />
+                  <div className="space-y-1">
+                    <label className="text-white/50 uppercase tracking-wider block text-[10px]">
+                      partita iva (p.iva)
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.vatNumber}
+                      onChange={(e) =>
+                        setContactForm({ ...contactForm, vatNumber: e.target.value })
+                      }
+                      placeholder="18341681007"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Dynamic Channels Section */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
+              <div className="p-6 rounded-2xl bg-[#0a0a0c] border border-white/10 space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-white/50 uppercase tracking-wider block">
-                    canali & social ({channels.length})
+                  <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
+                    {"//"} canali & social ({channels.length})
                   </span>
                 </div>
 
@@ -1920,7 +2188,7 @@ export default function ManagePage() {
                   {channels.map((chan) => (
                     <div
                       key={chan.id}
-                      className="flex flex-col sm:flex-row sm:items-center gap-3 border-b border-white/5 pb-3"
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/5"
                     >
                       <div className="w-full sm:w-1/3">
                         <label className="text-[10px] text-white/30 block mb-0.5">
@@ -1933,7 +2201,7 @@ export default function ManagePage() {
                             handleUpdateChannel(chan.id, { name: e.target.value })
                           }
                           placeholder="es. Instagram Cinema"
-                          className="w-full bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                          className="w-full bg-transparent border-b border-white/20 py-1 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                         />
                       </div>
                       <div className="flex-1">
@@ -1947,13 +2215,13 @@ export default function ManagePage() {
                             handleUpdateChannel(chan.id, { url: e.target.value })
                           }
                           placeholder="https://..."
-                          className="w-full bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                          className="w-full bg-transparent border-b border-white/20 py-1 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveChannel(chan.id)}
-                        className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer self-start sm:self-end sm:mb-1.5 text-[11px]"
+                        className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer self-start sm:self-center text-xs px-2 py-1"
                       >
                         [ rimuovi ]
                       </button>
@@ -1962,55 +2230,55 @@ export default function ManagePage() {
                 </div>
 
                 {/* Add new channel */}
-                <div className="pt-2 space-y-2">
-                  <span className="text-[11px] text-white/40 block">{"//"} aggiungi nuovo canale</span>
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <span className="text-[10px] text-white/40 uppercase tracking-wider block">aggiungi canale</span>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
                       value={newChannelName}
                       onChange={(e) => setNewChannelName(e.target.value)}
-                      placeholder="nome canale (es. YouTube 4K)"
-                      className="w-full sm:w-1/3 bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                      placeholder="Nome (es. YouTube)"
+                      className="w-full sm:w-1/3 bg-black/40 border border-white/15 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                     />
                     <input
                       type="text"
                       value={newChannelUrl}
                       onChange={(e) => setNewChannelUrl(e.target.value)}
-                      placeholder="url (es. https://youtube.com/@valerio)"
-                      className="flex-1 bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                      placeholder="URL (es. https://...)"
+                      className="flex-1 bg-black/40 border border-white/15 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                     />
                     <button
                       type="button"
                       onClick={handleAddChannel}
-                      className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer self-start sm:self-center text-xs whitespace-nowrap"
+                      className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs transition-colors cursor-pointer shrink-0"
                     >
-                      [ + aggiungi canale ]
+                      + Aggiungi
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* ── FOOTER CENTER LINKS (LINK IN BASSO AL CENTRO NEL FOOTER) ── */}
-              <div className="space-y-4 pt-6 border-t border-white/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/50 uppercase tracking-wider block">
-                    link in basso al centro nel footer ({footerLinks.length})
+              {/* ── FOOTER CENTER LINKS ── */}
+              <div className="p-6 rounded-2xl bg-[#0a0a0c] border border-white/10 space-y-4">
+                <div>
+                  <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest block">
+                    {"//"} link al centro nel footer ({footerLinks.length})
                   </span>
+                  <p className="text-[10px] text-white/40 mt-1">
+                    visibili in basso al centro sia nella home che nelle pagine di dettaglio
+                  </p>
                 </div>
-                <p className="text-[11px] text-white/40">
-                  questi link compaiono in basso al centro sia nella homepage che nel footer delle pagine dedicate
-                </p>
 
                 {/* List of existing footer links */}
                 <div className="space-y-3">
                   {footerLinks.map((flink) => (
                     <div
                       key={flink.id}
-                      className="flex flex-col sm:flex-row sm:items-center gap-3 border-b border-white/5 pb-3"
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/5"
                     >
                       <div className="w-full sm:w-1/3">
                         <label className="text-[10px] text-white/30 block mb-0.5">
-                          testo del link
+                          testo link
                         </label>
                         <input
                           type="text"
@@ -2018,13 +2286,13 @@ export default function ManagePage() {
                           onChange={(e) =>
                             handleUpdateFooterLink(flink.id, { label: e.target.value })
                           }
-                          placeholder="es. Instagram ↗"
-                          className="w-full bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                          placeholder="es. Vimeo ↗"
+                          className="w-full bg-transparent border-b border-white/20 py-1 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                         />
                       </div>
                       <div className="flex-1">
                         <label className="text-[10px] text-white/30 block mb-0.5">
-                          url di destinazione
+                          url destinazione
                         </label>
                         <input
                           type="text"
@@ -2033,13 +2301,13 @@ export default function ManagePage() {
                             handleUpdateFooterLink(flink.id, { url: e.target.value })
                           }
                           placeholder="https://..."
-                          className="w-full bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                          className="w-full bg-transparent border-b border-white/20 py-1 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveFooterLink(flink.id)}
-                        className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer self-start sm:self-end sm:mb-1.5 text-[11px]"
+                        className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer self-start sm:self-center text-xs px-2 py-1"
                       >
                         [ rimuovi ]
                       </button>
@@ -2048,41 +2316,32 @@ export default function ManagePage() {
                 </div>
 
                 {/* Add new footer link */}
-                <div className="pt-2 space-y-2">
-                  <span className="text-[11px] text-white/40 block">{"//"} aggiungi nuovo link al footer</span>
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <span className="text-[10px] text-white/40 uppercase tracking-wider block">aggiungi link footer</span>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
                       value={newFooterLabel}
                       onChange={(e) => setNewFooterLabel(e.target.value)}
-                      placeholder="testo link (es. Vimeo ↗)"
-                      className="w-full sm:w-1/3 bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                      placeholder="Testo (es. Vimeo ↗)"
+                      className="w-full sm:w-1/3 bg-black/40 border border-white/15 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                     />
                     <input
                       type="text"
                       value={newFooterUrl}
                       onChange={(e) => setNewFooterUrl(e.target.value)}
-                      placeholder="url (es. https://vimeo.com)"
-                      className="flex-1 bg-transparent border-b border-white/20 py-1.5 text-white focus:outline-none focus:border-white transition-colors"
+                      placeholder="URL (es. https://vimeo.com)"
+                      className="flex-1 bg-black/40 border border-white/15 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
                     />
                     <button
                       type="button"
                       onClick={handleAddFooterLink}
-                      className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer self-start sm:self-center text-xs whitespace-nowrap"
+                      className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs transition-colors cursor-pointer shrink-0"
                     >
-                      [ + aggiungi link footer ]
+                      + Aggiungi
                     </button>
                   </div>
                 </div>
-              </div>
-
-              <div className="pt-4">
-                <button
-                  onClick={handleSaveContact}
-                  className="text-xs text-white hover:italic transition-colors cursor-pointer font-bold"
-                >
-                  [ salva contatti e footer ]
-                </button>
               </div>
             </div>
           </div>
@@ -2097,14 +2356,15 @@ export default function ManagePage() {
                   libreria media server
                 </h2>
                 <p className="text-xs font-mono text-white/40 tracking-wider mt-1">
-                  carica nuovi file o elimina quelli presenti. clicca su copia percorso per incollarli nei progetti
+                  gestisci immagini e video caricati. clicca su copia percorso per usarli nei progetti
                 </p>
               </div>
 
               {/* Upload controls */}
-              <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-                <label className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">
-                  <span>{isUploading === "media-video" ? <AnimatedLoadingText label="caricamento video" /> : "[ + carica video (.mp4/.webm/.mov) ]"}</span>
+              <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/15 text-white transition-colors cursor-pointer shadow-md">
+                  <Video className="w-3.5 h-3.5 text-[#e0fe10]" />
+                  <span>{isUploading === "media-video" ? <AnimatedLoadingText label="caricamento video" /> : "Carica Video"}</span>
                   <input
                     type="file"
                     accept="video/*,.mp4,.webm,.mov"
@@ -2115,8 +2375,9 @@ export default function ManagePage() {
                         setIsUploading("media-video");
                         try {
                           await handleUploadFile(f, "video");
+                          showToast("Video caricato con successo!", "success");
                         } catch (err) {
-                          alert(err instanceof Error ? err.message : "Errore");
+                          showToast(err instanceof Error ? err.message : "Errore caricamento", "error");
                         } finally {
                           setIsUploading(null);
                           e.target.value = "";
@@ -2127,8 +2388,9 @@ export default function ManagePage() {
                   />
                 </label>
 
-                <label className="text-white/80 hover:text-white hover:italic transition-colors cursor-pointer">
-                  <span>{isUploading === "media-image" ? <AnimatedLoadingText label="caricamento immagine" /> : "[ + carica immagine (.jpg/.png/.webp) ]"}</span>
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/15 text-white transition-colors cursor-pointer shadow-md">
+                  <ImageIcon className="w-3.5 h-3.5 text-[#e0fe10]" />
+                  <span>{isUploading === "media-image" ? <AnimatedLoadingText label="caricamento immagine" /> : "Carica Immagine"}</span>
                   <input
                     type="file"
                     accept="image/*,.jpg,.jpeg,.png,.webp"
@@ -2139,8 +2401,9 @@ export default function ManagePage() {
                         setIsUploading("media-image");
                         try {
                           await handleUploadFile(f, "image");
+                          showToast("Immagine caricata con successo!", "success");
                         } catch (err) {
-                          alert(err instanceof Error ? err.message : "Errore");
+                          showToast(err instanceof Error ? err.message : "Errore caricamento", "error");
                         } finally {
                           setIsUploading(null);
                           e.target.value = "";
@@ -2160,116 +2423,196 @@ export default function ManagePage() {
               onRefresh={handleRefreshStorage}
             />
 
-            {/* Video List */}
-            <div className="space-y-4">
-              <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
-                <span>{"//"} file video ({activeVideos.length})</span>
+            {/* Media Search & Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#0a0a0c] border border-white/10 font-mono text-xs">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  placeholder="Cerca file per nome o percorso..."
+                  className="w-full bg-black/60 border border-white/10 rounded-xl pl-9 pr-8 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#e0fe10] transition-colors"
+                />
+                {mediaSearch && (
+                  <button
+                    onClick={() => setMediaSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
-              {activeVideos.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {activeVideos.map((vid) => (
-                    <div key={vid.path} className="space-y-2 group">
-                      <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                        <video
-                          src={vid.path}
-                          muted
-                          controls
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="flex items-start justify-between text-xs font-mono gap-2">
-                        <div className="overflow-hidden">
-                          <div className="text-white font-light truncate">{vid.name}</div>
-                          <div className="text-[10px] text-white/30 truncate">
-                            {vid.size} • {vid.path}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <a
-                            href={vid.path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-white/60 hover:text-white hover:italic transition-colors"
-                          >
-                            [ apri ↗ ]
-                          </a>
-                          <button
-                            onClick={() => handleCopy(vid.path)}
-                            className="text-xs text-white/60 hover:text-white hover:italic transition-colors cursor-pointer"
-                          >
-                            {copiedPath === vid.path ? "[ copiato ]" : "[ copia ]"}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMedia(vid.path, vid.key)}
-                            className="text-[11px] text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
-                          >
-                            [ elimina ]
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
-                  Nessun video caricato. Usa l&apos;area di upload sopra per caricare file video.
-                </div>
-              )}
+
+              {/* Type pills */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMediaTypeFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                    mediaTypeFilter === "all"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  Tutti ({activeVideos.length + activeImages.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaTypeFilter("videos")}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    mediaTypeFilter === "videos"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <Video className="w-3 h-3" />
+                  <span>Video ({activeVideos.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaTypeFilter("images")}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    mediaTypeFilter === "images"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  <span>Immagini ({activeImages.length})</span>
+                </button>
+              </div>
             </div>
 
-            {/* Image List */}
-            <div className="space-y-4 pt-6 border-t border-white/10">
-              <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
-                <span>{"//"} file immagini ({activeImages.length})</span>
-              </div>
-              {activeImages.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {activeImages.map((img) => (
-                    <div key={img.path} className="space-y-2 group">
-                      <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-black">
-                        <Image
-                          src={img.path}
-                          alt={img.name}
-                          fill
-                          unoptimized
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="text-xs font-mono">
-                        <div className="text-white font-light truncate">{img.name}</div>
-                        <div className="text-[10px] text-white/30 truncate">{img.size}</div>
-                        <div className="flex items-center justify-between pt-1 text-[11px]">
-                          <a
-                            href={img.path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-white/40 hover:text-white hover:italic transition-colors"
-                          >
-                            [ apri ↗ ]
-                          </a>
+            {/* Video List */}
+            {(mediaTypeFilter === "all" || mediaTypeFilter === "videos") && (
+              <div className="space-y-4">
+                <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Video className="w-3.5 h-3.5 text-[#e0fe10]" />
+                    <span>file video ({filteredVideos.length})</span>
+                  </span>
+                </div>
+                {filteredVideos.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {filteredVideos.map((vid) => (
+                      <div key={vid.path} className="p-3 rounded-2xl bg-[#09090b] border border-white/10 space-y-3 group hover:border-white/20 transition-all">
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-white/5">
+                          <video
+                            src={vid.path}
+                            muted
+                            controls
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="flex items-start justify-between text-xs font-mono gap-2">
+                          <div className="overflow-hidden">
+                            <div className="text-white font-light truncate" title={vid.name}>{vid.name}</div>
+                            <div className="text-[10px] text-white/30 truncate">
+                              {vid.size} • {vid.path}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px] font-mono">
                           <button
-                            onClick={() => handleCopy(img.path)}
-                            className="text-white/50 hover:text-white hover:italic transition-colors cursor-pointer"
+                            onClick={() => handleCopy(vid.path)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/80 hover:text-white transition-colors cursor-pointer"
                           >
-                            {copiedPath === img.path ? "[ copiato ]" : "[ copia ]"}
+                            <Copy className="w-3 h-3" />
+                            <span>{copiedPath === vid.path ? "Copiato!" : "Copia URL"}</span>
                           </button>
-                          <button
-                            onClick={() => handleDeleteMedia(img.path, img.key)}
-                            className="text-red-400/70 hover:text-red-400 hover:italic transition-colors cursor-pointer"
-                          >
-                            [ elimina ]
-                          </button>
+
+                          <div className="flex items-center gap-3">
+                            <a
+                              href={vid.path}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-white/40 hover:text-white transition-colors"
+                              title="Apri file in nuova scheda"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                            <button
+                              onClick={() => handleDeleteMedia(vid.path, vid.key)}
+                              className="text-red-400/70 hover:text-red-400 transition-colors cursor-pointer"
+                              title="Elimina file"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
+                    {mediaSearch ? "Nessun video corrispondente alla ricerca." : "Nessun video caricato."}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Image List */}
+            {(mediaTypeFilter === "all" || mediaTypeFilter === "images") && (
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <div className="text-xs font-mono text-white/50 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#e0fe10]" />
+                    <span>file immagini ({filteredImages.length})</span>
+                  </span>
                 </div>
-              ) : (
-                <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
-                  Nessuna immagine caricata. Usa l&apos;area di upload sopra per caricare file immagine.
-                </div>
-              )}
-            </div>
+                {filteredImages.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {filteredImages.map((img) => (
+                      <div key={img.path} className="p-2.5 rounded-xl bg-[#09090b] border border-white/10 space-y-2 group hover:border-white/20 transition-all">
+                        <div className="relative aspect-[16/10] rounded-lg overflow-hidden bg-black border border-white/5">
+                          <Image
+                            src={img.path}
+                            alt={img.name}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="text-xs font-mono">
+                          <div className="text-white font-light truncate text-[11px]" title={img.name}>{img.name}</div>
+                          <div className="text-[10px] text-white/30 truncate">{img.size}</div>
+                          <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
+                            <button
+                              onClick={() => handleCopy(img.path)}
+                              className="inline-flex items-center gap-1 text-white/60 hover:text-white transition-colors cursor-pointer"
+                            >
+                              <Copy className="w-2.5 h-2.5" />
+                              <span className="text-[10px]">{copiedPath === img.path ? "Copiato" : "Copia"}</span>
+                            </button>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={img.path}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-white/40 hover:text-white transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                              <button
+                                onClick={() => handleDeleteMedia(img.path, img.key)}
+                                className="text-red-400/70 hover:text-red-400 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 border border-dashed border-white/10 rounded-xl text-center font-mono text-xs text-white/40">
+                    {mediaSearch ? "Nessuna immagine corrispondente alla ricerca." : "Nessuna immagine caricata."}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -2285,19 +2628,27 @@ export default function ManagePage() {
               </p>
             </div>
 
-            {/* Backup options */}
+            {/* Backup options Cards */}
             <div className="space-y-4 pb-6 border-b border-white/10">
-              <div className="text-white/50 uppercase tracking-wider">{"//"} backup dati</div>
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="text-white/50 uppercase tracking-wider">{"//"} backup dati di sistema</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   onClick={handleExportBackup}
-                  className="hover:text-white hover:italic text-white/80 transition-colors cursor-pointer"
+                  className="p-4 rounded-xl bg-[#0a0a0c] border border-white/10 hover:border-white/30 text-left transition-all cursor-pointer group flex flex-col justify-between gap-3"
                 >
-                  [ scarica backup json ]
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-medium group-hover:italic">Scarica Backup</span>
+                    <ArrowDown className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-[10px] text-white/40">Esporta tutto in formato JSON</span>
                 </button>
 
-                <label className="hover:text-white hover:italic text-white/80 transition-colors cursor-pointer">
-                  <span>[ importa backup json ]</span>
+                <label className="p-4 rounded-xl bg-[#0a0a0c] border border-white/10 hover:border-white/30 text-left transition-all cursor-pointer group flex flex-col justify-between gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-medium group-hover:italic">Importa Backup</span>
+                    <Upload className="w-4 h-4 text-[#e0fe10]" />
+                  </div>
+                  <span className="text-[10px] text-white/40">Carica file JSON esportato</span>
                   <input
                     type="file"
                     accept=".json"
@@ -2317,52 +2668,82 @@ export default function ManagePage() {
                       },
                     });
                   }}
-                  className="text-red-400/80 hover:text-red-400 hover:italic transition-colors cursor-pointer"
+                  className="p-4 rounded-xl bg-[#140808] border border-red-500/20 hover:border-red-500/50 text-left transition-all cursor-pointer group flex flex-col justify-between gap-3"
                 >
-                  [ reset dati di fabbrica ]
+                  <div className="flex items-center justify-between">
+                    <span className="text-red-300 font-medium group-hover:italic">Reset Fabbrica</span>
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </div>
+                  <span className="text-[10px] text-red-400/50">Ripristina configurazione iniziale</span>
                 </button>
               </div>
             </div>
 
             {/* Change PIN (Server Encrypted PBKDF2) */}
-            <div className="space-y-4">
-              <div className="text-white/50 uppercase tracking-wider">{"//"} modifica pin di sicurezza server</div>
-              <form onSubmit={handleChangePin} className="space-y-3 max-w-sm">
+            <div className="space-y-4 p-6 rounded-2xl bg-[#0a0a0c] border border-white/10">
+              <div className="text-white/50 uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#e0fe10]" />
+                <span>{"//"} modifica pin di sicurezza server</span>
+              </div>
+              <form onSubmit={handleChangePin} className="space-y-4 max-w-sm">
                 <div>
                   <label className="text-[10px] text-white/40 uppercase block mb-1">PIN Attuale</label>
-                  <input
-                    type="password"
-                    value={currentPinInput}
-                    onChange={(e) => setCurrentPinInput(e.target.value)}
-                    placeholder="inserisci pin attuale"
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors text-xs font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showCurrentPin ? "text" : "password"}
+                      value={currentPinInput}
+                      onChange={(e) => setCurrentPinInput(e.target.value)}
+                      placeholder="inserisci pin attuale"
+                      className="w-full bg-black/60 border border-white/15 rounded-lg px-3 py-2 pr-9 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPin(!showCurrentPin)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {showCurrentPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
+
                 <div>
                   <label className="text-[10px] text-white/40 uppercase block mb-1">Nuovo PIN (minimo 6 caratteri)</label>
-                  <input
-                    type="password"
-                    value={newPinInput}
-                    onChange={(e) => setNewPinInput(e.target.value)}
-                    placeholder="nuovo pin di sicurezza"
-                    className="w-full bg-transparent border-b border-white/20 py-2 text-white focus:outline-none focus:border-white transition-colors text-xs font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPin ? "text" : "password"}
+                      value={newPinInput}
+                      onChange={(e) => setNewPinInput(e.target.value)}
+                      placeholder="nuovo pin di sicurezza"
+                      className="w-full bg-black/60 border border-white/15 rounded-lg px-3 py-2 pr-9 text-white focus:outline-none focus:border-[#e0fe10] transition-colors text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPin(!showNewPin)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {showNewPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
+
                 <button
                   type="submit"
                   disabled={isChangingPin}
-                  className="hover:text-white hover:italic text-white/80 transition-colors cursor-pointer block pt-1 text-xs disabled:opacity-40"
+                  className="px-4 py-2.5 rounded-xl bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-40"
                 >
-                  {isChangingPin ? "[ hashing & aggiornamento in corso... ]" : "[ aggiorna pin sul server ]"}
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>{isChangingPin ? "Hashing in corso..." : "Aggiorna PIN sul Server"}</span>
                 </button>
                 {pinSuccessMsg && (
-                  <p className="text-emerald-400 text-xs tracking-wider pt-1">
-                    [ ✓ {pinSuccessMsg} ]
+                  <p className="text-emerald-400 text-xs tracking-wider pt-1 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{pinSuccessMsg}</span>
                   </p>
                 )}
                 {pinChangeErrorMsg && (
-                  <p className="text-red-400 text-xs tracking-wider pt-1">
-                    [ ✗ {pinChangeErrorMsg} ]
+                  <p className="text-red-400 text-xs tracking-wider pt-1 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{pinChangeErrorMsg}</span>
                   </p>
                 )}
               </form>
@@ -2375,27 +2756,102 @@ export default function ManagePage() {
       {editingProject && (
         <div className="fixed inset-0 z-50 bg-[#050505]/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-10 overflow-y-auto">
           <div className="max-w-4xl w-full mx-auto space-y-8 font-mono text-xs">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
-              <div className="space-y-1">
-                <span className="text-xs text-white/40 tracking-widest uppercase">
-                  {isCreatingNew ? "[ new film ]" : `[ edit: ${editingProject.id} ]`}
-                </span>
-                <h3 className="text-xl sm:text-2xl font-light text-white italic lowercase">
-                  {editingProject.title.en || editingProject.title.it}
-                </h3>
+            {/* Modal Sticky Header */}
+            <div className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md pb-4 pt-2 border-b border-white/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-white/40 tracking-widest uppercase">
+                    {isCreatingNew ? "[ new film ]" : `[ edit: ${editingProject.id} ]`}
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-light text-white italic lowercase">
+                    {editingProject.title.en || editingProject.title.it || "Senza Titolo"}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveProjectModal}
+                    className="px-4 py-1.5 rounded-lg bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-1.5 shadow"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isCreatingNew ? "Crea Film" : "Salva"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingProject(null)}
+                    className="hover:text-white text-white/40 transition-colors cursor-pointer p-1.5 rounded-lg border border-white/10 hover:border-white/30"
+                    title="Chiudi modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={() => setEditingProject(null)}
-                className="hover:text-white hover:italic text-white/50 transition-colors cursor-pointer"
-              >
-                [ chiudi × ]
-              </button>
+              {/* Jump Nav Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSection("general");
+                    document.getElementById("modal-section-info")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    modalSection === "general"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  01 Info
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSection("videos");
+                    document.getElementById("modal-section-videos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    modalSection === "videos"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  02 Video ({editingProject.videos?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSection("cover");
+                    document.getElementById("modal-section-cover")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    modalSection === "cover"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  03 Copertina
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSection("stills");
+                    document.getElementById("modal-section-stills")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    modalSection === "stills"
+                      ? "bg-white text-black font-bold"
+                      : "bg-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  04 Stills ({editingProject.stills?.length || 0})
+                </button>
+              </div>
             </div>
 
             {/* General Info */}
-            <div className="space-y-6">
+            <div id="modal-section-info" className="space-y-6">
               <div className="text-white/40 uppercase tracking-widest">{"//"} info generali</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -2476,8 +2932,7 @@ export default function ManagePage() {
             </div>
 
             {/* Media URLs */}
-            {/* Media URLs */}
-            <div className="space-y-6 pt-4 border-t border-white/10">
+            <div id="modal-section-videos" className="space-y-6 pt-4 border-t border-white/10">
               <div className="text-white/40 uppercase tracking-widest">{"//"} video & poster</div>
 
               {/* Video Preview (for homepage hover cards) */}
@@ -2499,9 +2954,12 @@ export default function ManagePage() {
                           setIsUploading("proj-preview");
                           try {
                             const path = await handleUploadFile(f, "video");
-                            if (path) setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
+                            if (path) {
+                              setEditingProject((prev) => (prev ? { ...prev, videoPreviewUrl: path } : null));
+                              showToast("Video preview caricato!", "success");
+                            }
                           } catch (err) {
-                            alert(err instanceof Error ? err.message : "Errore");
+                            showToast(err instanceof Error ? err.message : "Errore caricamento preview", "error");
                           } finally {
                             setIsUploading(null);
                             e.target.value = "";
@@ -2624,7 +3082,7 @@ export default function ManagePage() {
                             });
                           }
                         } catch (err) {
-                          alert(err instanceof Error ? err.message : "Errore caricamento video");
+                          showToast(err instanceof Error ? err.message : "Errore caricamento video", "error");
                         } finally {
                           setIsUploading(null);
                           e.target.value = "";
@@ -2771,9 +3229,10 @@ export default function ManagePage() {
                                             const path = await handleUploadFile(file, "image");
                                             if (path) {
                                               handleUpdateMainVideo(vIdx, { posterImage: path, poster: path });
+                                              showToast("Cover video aggiornata!", "success");
                                             }
                                           } catch (err) {
-                                            alert(err instanceof Error ? err.message : "Errore caricamento cover");
+                                            showToast(err instanceof Error ? err.message : "Errore caricamento cover", "error");
                                           } finally {
                                             setIsUploading(null);
                                             e.target.value = "";
@@ -2896,7 +3355,7 @@ export default function ManagePage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div id="modal-section-cover" className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-white/40 block">poster image url</label>
                   <label className="text-[11px] text-white/70 hover:text-white hover:italic cursor-pointer">
@@ -2911,9 +3370,12 @@ export default function ManagePage() {
                           setIsUploading("proj-poster");
                           try {
                             const path = await handleUploadFile(f, "image");
-                            if (path) setEditingProject((prev) => (prev ? { ...prev, posterImage: path } : null));
+                            if (path) {
+                              setEditingProject((prev) => (prev ? { ...prev, posterImage: path } : null));
+                              showToast("Cover principale impostata!", "success");
+                            }
                           } catch (err) {
-                            alert(err instanceof Error ? err.message : "Errore");
+                            showToast(err instanceof Error ? err.message : "Errore caricamento cover", "error");
                           } finally {
                             setIsUploading(null);
                             e.target.value = "";
@@ -2942,9 +3404,10 @@ export default function ManagePage() {
                       <button
                         key={img.path}
                         type="button"
-                        onClick={() =>
-                          setEditingProject((prev) => (prev ? { ...prev, posterImage: img.path } : null))
-                        }
+                        onClick={() => {
+                          setEditingProject((prev) => (prev ? { ...prev, posterImage: img.path } : null));
+                          showToast(`Cover selezionata: ${img.name}`, "info");
+                        }}
                         className="text-white/70 hover:text-white hover:underline transition-colors truncate max-w-[150px] cursor-pointer"
                       >
                         [ {img.name} ]
@@ -2972,7 +3435,7 @@ export default function ManagePage() {
             </div>
 
             {/* Stills & Frames Section */}
-            <div className="space-y-4 pt-4 border-t border-white/10">
+            <div id="modal-section-stills" className="space-y-4 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="text-white/40 uppercase tracking-widest">
                   {"//"} stills & frames ({editingProject.stills?.length || 0})
@@ -3008,9 +3471,10 @@ export default function ManagePage() {
                                   }
                                 : null
                             );
+                            showToast(`Caricate ${uploaded.length} foto negli stills!`, "success");
                           }
                         } catch (err) {
-                          alert(err instanceof Error ? err.message : "Errore caricamento");
+                          showToast(err instanceof Error ? err.message : "Errore caricamento foto", "error");
                         } finally {
                           setIsUploading(null);
                           e.target.value = "";
@@ -3188,23 +3652,32 @@ export default function ManagePage() {
 
 
 
-            {/* Modal Actions */}
-            <div className="pt-6 border-t border-white/10 flex items-center justify-between pb-8">
-              <button
-                type="button"
-                onClick={() => setEditingProject(null)}
-                className="text-white/40 hover:text-white hover:italic transition-colors cursor-pointer"
-              >
-                [ annulla ]
-              </button>
+            {/* Sticky Modal Bottom Actions */}
+            <div className="sticky bottom-0 z-30 bg-[#050505]/95 backdrop-blur-md pt-4 pb-4 border-t border-white/10 flex items-center justify-between -mx-4 px-4 sm:-mx-10 sm:px-10">
+              <div className="flex items-center gap-3 text-white/50 text-xs">
+                <span>{editingProject.videos?.length || 0} video</span>
+                <span>•</span>
+                <span>{editingProject.stills?.length || 0} stills</span>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleSaveProjectModal}
-                className="text-white hover:italic transition-colors cursor-pointer font-bold"
-              >
-                {isCreatingNew ? "[ crea progetto → ]" : "[ salva modifiche → ]"}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingProject(null)}
+                  className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-white hover:border-white/30 transition-colors cursor-pointer"
+                >
+                  Annulla
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveProjectModal}
+                  className="px-5 py-2 rounded-xl bg-white text-black font-mono text-xs font-bold hover:bg-[#e0fe10] transition-colors cursor-pointer flex items-center gap-2 shadow-xl"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isCreatingNew ? "Crea Progetto →" : "Salva Modifiche →"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3276,6 +3749,37 @@ export default function ManagePage() {
                 {isConfirming ? "[ eliminazione... ]" : confirmDialog.confirmLabel || "[ conferma ]"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Cinema Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-[120] max-w-md animate-cinema-fade"
+        >
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-2xl font-mono text-xs ${
+              toast.type === "success"
+                ? "bg-[#0b140b]/90 border-emerald-500/40 text-emerald-300 shadow-emerald-950/50"
+                : toast.type === "error"
+                ? "bg-[#160b0b]/90 border-red-500/40 text-red-300 shadow-red-950/50"
+                : "bg-[#111116]/90 border-white/20 text-white shadow-black/80"
+            }`}
+          >
+            {toast.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+            {toast.type === "error" && <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />}
+            {toast.type === "info" && <Sparkles className="w-4 h-4 text-[#e0fe10] shrink-0" />}
+            <span className="flex-1 leading-snug">{toast.message}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-white/40 hover:text-white transition-colors cursor-pointer p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}
