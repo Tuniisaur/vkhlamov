@@ -4,7 +4,18 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 const customTitleFont = localFont({
-  src: "../../public/font.otf",
+  src: [
+    {
+      path: "../../public/font.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+    {
+      path: "../../public/font.otf",
+      weight: "100 900",
+      style: "normal",
+    },
+  ],
   variable: "--font-title-custom",
   display: "swap",
 });

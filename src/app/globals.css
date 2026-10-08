@@ -2,14 +2,15 @@
 
 @font-face {
   font-family: "TitleCustomFont";
-  src: url("/font.otf") format("opentype");
+  src: url("/font.woff2") format("woff2"),
+       url("/font.otf") format("opentype");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 .font-title-custom {
-  font-family: var(--font-title-custom), "TitleCustomFont", sans-serif;
+  font-family: var(--font-title-custom), "TitleCustomFont", system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
