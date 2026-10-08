@@ -1381,9 +1381,14 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               href="https://tuni-tawny.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-white transition-colors duration-200"
+              className="group inline-flex items-center gap-1.5 hover:text-white transition-colors duration-200"
             >
-              made by tuni.
+              <span>made by</span>
+              <img
+                src="/sh.svg"
+                alt="SH"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain opacity-40 group-hover:opacity-100 transition-opacity duration-200"
+              />
             </a>
           </div>
         </div>
