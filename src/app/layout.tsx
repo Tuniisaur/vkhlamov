@@ -89,6 +89,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${customTitleFont.variable} dark scroll-smooth`}>
       <head>
+        <link rel="preload" href="/font.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="icon" type="image/png" href={VK_FAVICON_DATA_URI} />
         <link rel="shortcut icon" href={VK_FAVICON_DATA_URI} />
         <script
