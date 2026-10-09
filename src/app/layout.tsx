@@ -4,20 +4,11 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 const customTitleFont = localFont({
-  src: [
-    {
-      path: "../../public/font.woff2",
-      weight: "100 900",
-      style: "normal",
-    },
-    {
-      path: "../../public/font.otf",
-      weight: "100 900",
-      style: "normal",
-    },
-  ],
+  src: "./fonts/font.woff2",
   variable: "--font-title-custom",
+  weight: "100 900",
   display: "swap",
+  preload: true,
 });
 
 const spaceGrotesk = Space_Grotesk({
