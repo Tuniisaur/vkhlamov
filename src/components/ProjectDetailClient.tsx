@@ -1378,7 +1378,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           {/* Right: Credits */}
           <div className="text-center sm:text-right text-white/40 lowercase tracking-widest text-[10px] sm:text-xs">
             <a
-              href="https://tuni-tawny.vercel.app"
+              href="https://svarthull.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-1.5 hover:text-white transition-colors duration-200"
@@ -1386,7 +1386,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
               <span>made by</span>
               <img
                 src="/sh.svg"
-                alt="SH"
+                alt="Svarthull"
                 className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain opacity-40 group-hover:opacity-100 transition-opacity duration-200"
               />
             </a>
