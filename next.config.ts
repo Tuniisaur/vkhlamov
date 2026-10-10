@@ -31,20 +31,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/font.woff2",
-        headers: [
-          {
-            key: "Access-Control-Allow-Origin",
-            value: "*",
-          },
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-      {
-        source: "/font.otf",
+        source: "/font.:ext(woff2|woff|ttf|otf)",
         headers: [
           {
             key: "Access-Control-Allow-Origin",
