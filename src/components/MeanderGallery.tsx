@@ -434,6 +434,19 @@ export default function MeanderGallery({
 
   return (
     <div className={`w-full px-4 sm:px-6 md:px-8 lg:px-10 ${className}`}>
+      {/* Semantic Portfolio Section Header (H2) */}
+      <div className="w-full mb-8 sm:mb-12 flex items-center justify-between border-b border-white/[0.08] pb-3 sm:pb-4 font-mono text-xs uppercase tracking-widest text-white/50">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
+          <h2 className="text-white text-xs sm:text-sm font-light tracking-widest uppercase">
+            Selected Works // Motorsport &amp; Automotive Cinema
+          </h2>
+        </div>
+        <span className="text-white/40 text-[10px] sm:text-xs font-mono">
+          [{stories.length.toString().padStart(2, "0")} ARCHIVE REELS]
+        </span>
+      </div>
+
       {/* 3 cards per row on desktop covering the full width of the page */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-8 sm:gap-y-12 md:gap-y-16 w-full">
         {stories.map((story) => (

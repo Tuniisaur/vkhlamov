@@ -156,7 +156,6 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         }`}
       >
 
-        {/* VALERIY KHLAMOV Title - Monumental in Hero, Compact in Projects */}
         <h1
           onClick={scrollToTop}
           className={`cursor-pointer font-title-custom uppercase text-white leading-none select-none text-center transform transition-all duration-500 ease-out hover:scale-[1.01] px-2 ${
@@ -167,6 +166,9 @@ export default function SoonHeroLayout({ onSelectProject, onHeroReady }: SoonHer
         >
           VALERIY KHLAMOV
         </h1>
+        <p className="sr-only">
+          Motorsport &amp; Automotive Cinematographer — Director of Photography
+        </p>
 
         {/* ── Menu Directly Underneath the Title: projects, about, contact ── */}
         <nav

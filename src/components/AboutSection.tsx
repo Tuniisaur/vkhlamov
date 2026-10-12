@@ -82,9 +82,9 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               {/* Disciplines */}
               {Boolean(about.disciplines && about.disciplines.trim()) && (
                 <div className="space-y-1.5">
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase">
+                  <h3 className="text-white/40 block text-[10px] tracking-widest uppercase font-mono font-normal">
                     {about.disciplinesTitle || "DISCIPLINES & FOCUS"}
-                  </span>
+                  </h3>
                   <p className="text-white/90 font-light leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                     {about.disciplines}
                   </p>
@@ -94,9 +94,9 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               {/* Accreditations */}
               {Boolean(about.accreditations && about.accreditations.trim()) && (
                 <div className="space-y-1.5">
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase">
+                  <h3 className="text-white/40 block text-[10px] tracking-widest uppercase font-mono font-normal">
                     {about.accreditationsTitle || "ACCREDITATIONS"}
-                  </span>
+                  </h3>
                   <p className="text-white/90 font-light leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                     {about.accreditations}
                   </p>
@@ -106,9 +106,9 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               {/* Base & Deployment */}
               {Boolean(about.base && about.base.trim()) && (
                 <div className="space-y-1.5">
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase">
+                  <h3 className="text-white/40 block text-[10px] tracking-widest uppercase font-mono font-normal">
                     {about.baseTitle || "BASE & DEPLOYMENT"}
-                  </span>
+                  </h3>
                   <p className="text-white/90 font-light leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                     {about.base}
                   </p>
@@ -118,9 +118,9 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               {/* Representation */}
               {Boolean(settings.representation && settings.representation.trim()) && (
                 <div className="space-y-1.5">
-                  <span className="text-white/40 block text-[10px] tracking-widest uppercase">
+                  <h3 className="text-white/40 block text-[10px] tracking-widest uppercase font-mono font-normal">
                     REPRESENTATION
-                  </span>
+                  </h3>
                   <p className="text-white/90 font-light leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                     {settings.representation}
                   </p>
@@ -131,9 +131,9 @@ export default function AboutSection({ about, settings }: AboutSectionProps) {
               {about.customBlocks &&
                 about.customBlocks.map((block) => (
                   <div key={block.id} className="space-y-1.5">
-                    <span className="text-white/40 block text-[10px] tracking-widest uppercase">
+                    <h3 className="text-white/40 block text-[10px] tracking-widest uppercase font-mono font-normal">
                       {block.label}
-                    </span>
+                    </h3>
                     <p className="text-white/90 font-light leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                       {block.value}
                     </p>

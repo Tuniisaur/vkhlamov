@@ -1,0 +1,17 @@
+# Valeriy Khlamov Official Portfolio
+# https://vkhlamov.com
+
+User-agent: *
+Allow: /
+Allow: /project/
+Allow: /legal
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /manage
+Disallow: /manage/
+Disallow: /api/
+Disallow: /_next/
+
+Sitemap: https://vkhlamov.com/sitemap.xml
+Host: https://vkhlamov.com

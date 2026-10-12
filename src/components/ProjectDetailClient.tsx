@@ -46,9 +46,9 @@ function SecondaryVideoBlock({
       {vid.title && (
         <div className="w-full flex items-center justify-start gap-2 px-1">
           <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-          <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
+          <h3 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest font-normal">
             {vid.title}
-          </h4>
+          </h3>
         </div>
       )}
       <div className={`w-full flex justify-center ${isVertical ? "max-w-[380px] sm:max-w-[420px] mx-auto" : "w-full"}`}>
@@ -1019,9 +1019,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
           {hasVideos && primaryVideo?.title && primaryVideo.title !== "Main Film" && (
             <div className="w-full flex items-center justify-start gap-2 px-1">
               <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-              <h4 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest">
+              <h3 className="text-sm sm:text-base font-mono text-white/80 uppercase tracking-widest font-normal">
                 {primaryVideo.title}
-              </h4>
+              </h3>
             </div>
           )}
 
@@ -1125,9 +1125,9 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
         {/* ── SECTION 3: SOTTO TUTTE LE FOTO COLLEGATE CON IL VIDEO (Connected Stills) ── */}
         <section ref={stillsRef} className="space-y-4 sm:space-y-6 pt-6 sm:pt-8 border-t border-white/10">
           <div className="flex items-baseline justify-between">
-            <h3 className="text-xl sm:text-2xl font-light text-white italic tracking-tight lowercase transition-all duration-300">
-              stills & frames
-            </h3>
+            <h2 className="text-xl sm:text-2xl font-light text-white italic tracking-tight lowercase transition-all duration-300">
+              stills &amp; frames
+            </h2>
           </div>
 
           {/* Stills Gallery - Due per riga su mobile (grid-cols-2), 3 su desktop (lg:grid-cols-3) */}
@@ -1144,7 +1144,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                   {(isProjectMediaReady || isScrolledToStills) ? (
                     <Image
                       src={stillUrl}
-                      alt=""
+                      alt={`${getTitle(project.title)} — Cinema Frame ${idx + 1}`}
                       fill
                       loading="lazy"
                       fetchPriority="low"

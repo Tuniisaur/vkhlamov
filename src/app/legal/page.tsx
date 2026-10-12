@@ -3,9 +3,19 @@ import CustomCursor from "@/components/CustomCursor";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "LEGAL NOTICE, PRIVACY & COPYRIGHT // VALERIY KHLAMOV",
+  title: "Legal Notice, Privacy & GDPR // Valeriy Khlamov",
   description:
-    "Privacy Policy (GDPR), Technical Cookie Disclosure, and Intellectual Property Terms for Valeriy Khlamov Studio.",
+    "Official legal notice for Valeriy Khlamov Studio: GDPR Privacy Policy (EU 2016/679), technical cookie governance, and audiovisual intellectual property terms.",
+  alternates: {
+    canonical: "/legal",
+  },
+  openGraph: {
+    title: "Legal Notice, Privacy & GDPR // Valeriy Khlamov",
+    description:
+      "Privacy Policy (GDPR EU 2016/679), cookie disclosures and copyright provisions for Valeriy Khlamov Studio.",
+    url: "/legal",
+    type: "website",
+  },
 };
 
 export default function LegalPage() {

@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/:path*",
+        source: "/:path(admin.*|manage.*|api/.*)",
         headers: [
           {
             key: "X-Robots-Tag",
